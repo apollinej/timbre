@@ -254,14 +254,16 @@ struct FolderSection: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .contextMenu {
-                Button("Rename\u{2026}") { onRenameFolder() }
-                Divider()
-                Button("Delete", role: .destructive) {
-                    for m in folder.memos { m.folder = nil }
-                    modelContext.delete(folder)
-                    try? modelContext.save()
-                }
+            .timbreContextMenu {
+                [
+                    .item(TimbreMenuItem("Rename\u{2026}", icon: "pencil") { onRenameFolder() }),
+                    .divider,
+                    .item(TimbreMenuItem("Delete", icon: "trash", isDestructive: true) {
+                        for m in folder.memos { m.folder = nil }
+                        modelContext.delete(folder)
+                        try? modelContext.save()
+                    }),
+                ]
             }
 
             if isExpanded {
@@ -331,24 +333,28 @@ struct MemoRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .contextMenu {
-            Button("Rename\u{2026}") { onRename() }
+        .timbreContextMenu {
+            var entries: [TimbreMenuEntry] = [
+                .item(TimbreMenuItem("Rename\u{2026}", icon: "pencil") { onRename() }),
+            ]
             if !folders.isEmpty {
-                Menu("Move to Folder") {
-                    ForEach(folders.sorted(by: { $0.dateCreated < $1.dateCreated })) { folder in
-                        Button(folder.name) {
+                let folderItems = folders
+                    .sorted(by: { $0.dateCreated < $1.dateCreated })
+                    .map { folder in
+                        TimbreMenuItem(folder.name, icon: "folder.fill") { [memo, modelContext] in
                             memo.folder = folder
                             try? modelContext.save()
                         }
                     }
-                }
+                entries.append(.section("Move to Folder", folderItems))
             }
-            Divider()
-            Button("Delete", role: .destructive) {
+            entries.append(.divider)
+            entries.append(.item(TimbreMenuItem("Delete", icon: "trash", isDestructive: true) { [memo, modelContext] in
                 TranscriptDiskExport.removeFile(for: memo.id)
                 modelContext.delete(memo)
                 try? modelContext.save()
-            }
+            }))
+            return entries
         }
     }
 }

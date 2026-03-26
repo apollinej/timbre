@@ -362,6 +362,9 @@ struct TranscriptView: View {
                                         newText: newText
                                     )
                                     editingBlockIndex = nil
+                                },
+                                onCancelEdit: {
+                                    editingBlockIndex = nil
                                 }
                             )
                             .id(index)
@@ -705,6 +708,7 @@ struct MergedSegmentRow: View {
     let onRenameSpeaker: () -> Void
     let onStartEdit: () -> Void
     let onSaveEdit: (String) -> Void
+    let onCancelEdit: () -> Void
 
     @State private var localEditText = ""
     @FocusState private var editFocused: Bool
@@ -748,24 +752,60 @@ struct MergedSegmentRow: View {
                 }
 
                 if isEditing {
-                    TextEditor(text: $localEditText)
-                        .font(Theme.bodyFont)
-                        .foregroundStyle(Color(hex: "043050"))
-                        .scrollContentBackground(.hidden)
-                        .background(Color.white.opacity(0.5))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 3)
-                                .strokeBorder(Color(hex: "00B0FF").opacity(0.6), lineWidth: 1)
-                        )
-                        .frame(minHeight: 40)
-                        .focused($editFocused)
-                        .onAppear {
-                            localEditText = block.text
-                            editFocused = true
+                    VStack(alignment: .leading, spacing: 6) {
+                        TextEditor(text: $localEditText)
+                            .font(Theme.bodyFont)
+                            .foregroundStyle(Color(hex: "043050"))
+                            .scrollContentBackground(.hidden)
+                            .background(Color.white.opacity(0.5))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 3)
+                                    .strokeBorder(Color(hex: "00B0FF").opacity(0.6), lineWidth: 1)
+                            )
+                            .frame(minHeight: 60)
+                            .focused($editFocused)
+                            .onAppear {
+                                localEditText = block.text
+                                editFocused = true
+                            }
+
+                        HStack(spacing: 8) {
+                            Button {
+                                onSaveEdit(localEditText)
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 10, weight: .bold))
+                                    Text("save")
+                                        .font(TimbreFont.fontBold(size: 11))
+                                }
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 5)
+                                .background(
+                                    Capsule().fill(
+                                        LinearGradient(
+                                            colors: [Color(hex: "00B8FF"), Color(hex: "0080E0")],
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    )
+                                )
+                                .overlay(Capsule().strokeBorder(Color.white.opacity(0.4), lineWidth: 1))
+                                .shadow(color: Color(hex: "00C8FF").opacity(0.3), radius: 3, y: 1)
+                            }
+                            .buttonStyle(.plain)
+
+                            Button {
+                                onCancelEdit()
+                            } label: {
+                                Text("cancel")
+                                    .font(Theme.captionFont)
+                                    .foregroundStyle(Color(hex: "0088C8"))
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .onSubmit {
-                            onSaveEdit(localEditText)
-                        }
+                    }
                 } else {
                     Text(block.text)
                         .font(Theme.bodyFont)
@@ -787,6 +827,11 @@ struct MergedSegmentRow: View {
                     ? Color(hex: "00C8FF").opacity(0.06)
                     : Color.clear
         )
+        .onChange(of: isEditing) { wasEditing, nowEditing in
+            if wasEditing && !nowEditing && !localEditText.isEmpty && localEditText != block.text {
+                onSaveEdit(localEditText)
+            }
+        }
     }
 }
 
