@@ -40,6 +40,7 @@ struct TranscriptView: View {
     @State private var replaceText = ""
     @State private var editingBlockIndex: Int?
     @State private var editText = ""
+    @State private var isEditMode = false
 
     private var selectedModel: WhisperModel {
         WhisperModel(rawValue: selectedModelRaw) ?? .baseEn
@@ -61,6 +62,13 @@ struct TranscriptView: View {
 
                 if memo.status == .completed {
                     HStack(spacing: 6) {
+                        headerPill(
+                            icon: isEditMode ? "checkmark" : "pencil",
+                            label: isEditMode ? "done" : "edit"
+                        ) {
+                            if isEditMode { editingBlockIndex = nil }
+                            isEditMode.toggle()
+                        }
                         headerPill(icon: "magnifyingglass", label: "find") {
                             showFindReplace.toggle()
                         }
@@ -327,15 +335,33 @@ struct TranscriptView: View {
                             MergedSegmentRow(
                                 block: block,
                                 isActive: isBlockActive(block),
+                                isEditing: isEditMode && editingBlockIndex == index,
+                                speakerVersion: viewModel.speakerVersion,
                                 onTap: {
-                                    Task {
-                                        await viewModel.jumpToAndPlay(memo: memo, time: block.startTime)
+                                    if isEditMode {
+                                        editingBlockIndex = index
+                                    } else {
+                                        Task {
+                                            await viewModel.jumpToAndPlay(memo: memo, time: block.startTime)
+                                        }
                                     }
                                 },
                                 onRenameSpeaker: {
                                     if let speaker = block.speaker {
                                         renamingSpeaker = speaker
                                     }
+                                },
+                                onStartEdit: {
+                                    editingBlockIndex = index
+                                },
+                                onSaveEdit: { newText in
+                                    saveSegmentEdit(
+                                        segments: transcript.sortedSegments,
+                                        blockIndex: index,
+                                        merged: merged,
+                                        newText: newText
+                                    )
+                                    editingBlockIndex = nil
                                 }
                             )
                             .id(index)
@@ -493,27 +519,30 @@ struct TranscriptView: View {
         }
     }
 
-    private func saveSegmentEdit(segments: [Segment], blockIndex: Int, merged: [MergedBlock]) {
+    private func saveSegmentEdit(
+        segments: [Segment],
+        blockIndex: Int,
+        merged: [MergedBlock],
+        newText: String
+    ) {
         guard blockIndex < merged.count else { return }
         let block = merged[blockIndex]
-        // Find all segments in this merged block and update their text
         let blockSegments = segments.filter { seg in
             seg.startTime >= block.startTime && seg.endTime <= block.endTime
                 && seg.speaker?.id == block.speaker?.id
         }
         if blockSegments.count == 1 {
-            blockSegments[0].text = editText
+            blockSegments[0].text = newText
         } else if !blockSegments.isEmpty {
-            // Distribute edited text across segments proportionally
-            blockSegments[0].text = editText
+            // Put all edited text into first segment, clear the rest
+            blockSegments[0].text = newText
             for seg in blockSegments.dropFirst() {
                 seg.text = ""
             }
         }
         try? modelContext.save()
         viewModel.speakerVersion += 1
-        TranscriptDiskExport.syncAllMemos(modelContext: modelContext)
-        editingBlockIndex = nil
+        try? TranscriptDiskExport.writeMemoTranscriptIfNeeded(memo)
     }
 
     private var activeToast: String? {
@@ -670,12 +699,24 @@ struct MergedBlock {
 struct MergedSegmentRow: View {
     let block: MergedBlock
     let isActive: Bool
+    let isEditing: Bool
+    let speakerVersion: Int
     let onTap: () -> Void
     let onRenameSpeaker: () -> Void
+    let onStartEdit: () -> Void
+    let onSaveEdit: (String) -> Void
+
+    @State private var localEditText = ""
+    @FocusState private var editFocused: Bool
+
+    // Force re-read speaker name when speakerVersion changes
+    private var speakerName: String {
+        let _ = speakerVersion
+        return block.speaker?.effectiveName ?? "???"
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
-            // Active indicator bar
             Group {
                 if isActive {
                     Rectangle()
@@ -706,14 +747,35 @@ struct MergedSegmentRow: View {
                         .onTapGesture { onTap() }
                 }
 
-                Text(block.text)
-                    .font(Theme.bodyFont)
-                    .foregroundStyle(Color(hex: "043050"))
-                    .textSelection(.enabled)
-                    .lineLimit(nil)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .contentShape(Rectangle())
-                    .onTapGesture { onTap() }
+                if isEditing {
+                    TextEditor(text: $localEditText)
+                        .font(Theme.bodyFont)
+                        .foregroundStyle(Color(hex: "043050"))
+                        .scrollContentBackground(.hidden)
+                        .background(Color.white.opacity(0.5))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 3)
+                                .strokeBorder(Color(hex: "00B0FF").opacity(0.6), lineWidth: 1)
+                        )
+                        .frame(minHeight: 40)
+                        .focused($editFocused)
+                        .onAppear {
+                            localEditText = block.text
+                            editFocused = true
+                        }
+                        .onSubmit {
+                            onSaveEdit(localEditText)
+                        }
+                } else {
+                    Text(block.text)
+                        .font(Theme.bodyFont)
+                        .foregroundStyle(Color(hex: "043050"))
+                        .textSelection(.enabled)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .contentShape(Rectangle())
+                        .onTapGesture { onTap() }
+                }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
@@ -721,7 +783,9 @@ struct MergedSegmentRow: View {
         .background(
             isActive
                 ? Color(hex: "00C8FF").opacity(0.12)
-                : Color.clear
+                : isEditing
+                    ? Color(hex: "00C8FF").opacity(0.06)
+                    : Color.clear
         )
     }
 }
