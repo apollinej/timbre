@@ -1,32 +1,17 @@
-# Xcode
-*.xcodeproj/project.xcworkspace/xcuserdata/
+.build/
+.swiftpm/
 *.xcodeproj/xcuserdata/
 *.xcworkspace/xcuserdata/
-*.xcworkspace/xcshareddata/
 DerivedData/
-build/
-*.moved-aside
-*.pbxuser
-!default.pbxuser
-*.mode1v3
-!default.mode1v3
-*.mode2v3
-!default.mode2v3
-*.perspectivev3
-!default.perspectivev3
-xcuserdata/
-
-# Swift Package Manager
-.build/
-.swiftpm/xcode/xcuserdata/
-.swiftpm/configuration/
-Packages/
-Package.resolved
-
-# macOS
-.DS_Store
-*.dSYM.zip
+*.app
 *.dSYM
+*.ipa
+.DS_Store
 
-# Models (large ML files)
-*.mlmodelc
+# User data (created at runtime)
+library/
+transcripts/
+models/
+*.store
+*.store-shm
+*.store-wal

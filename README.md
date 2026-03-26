@@ -1,96 +1,93 @@
-# Timbre
+# timbre
 
-Native macOS app that converts voice recordings into clean, speaker-attributed transcripts. Fully local — no cloud, no API keys, no subscriptions.
+Local voice memo transcription with speaker diarization. No cloud, no API keys, no subscriptions.
+
+Drop in a voice recording and get a clean, speaker-attributed transcript. Everything runs on-device using [WhisperKit](https://github.com/argmaxinc/WhisperKit) (CoreML Whisper on Apple Neural Engine) and [SpeakerKit](https://github.com/argmaxinc/WhisperKit) (on-device pyannote diarization).
 
 ## Features
 
-- **Import** — Drag and drop audio files (.m4a, .wav, .mp3, .flac, .aac, .caf, .aiff) or browse your Voice Memos directly
-- **Transcribe** — On-device transcription powered by [WhisperKit](https://github.com/argmaxinc/WhisperKit) running on Apple's Neural Engine
-- **Speaker Diarization** — Automatic speaker identification via [SpeakerKit](https://www.argmaxinc.com/blog/speakerkit) with pyannote CoreML models
-- **Edit** — Color-coded speaker labels with inline renaming
-- **Playback** — Click any segment to jump to that timestamp; synced waveform visualization
-- **Export** — Markdown, plain text, SRT subtitles, or JSON
+- **Speaker diarization** — automatically identifies and labels different speakers
+- **Click-to-seek** — click any transcript segment or the waveform to jump to that point
+- **Live highlight** — current segment highlights as audio plays
+- **Speaker rename** — rename "Speaker 1" to actual names, applied globally
+- **Copy transcript** — one click to copy the full transcript to clipboard
+- **Folder organization** — create folders, rename files, drag to organize
+- **Export** — Markdown, plain text, SRT subtitles, JSON
+- **Multiple models** — tiny, base, small, large-v3 (auto-downloaded on first use)
+- **Fully local** — no network requests, no accounts, no telemetry
 
 ## Requirements
 
 - macOS 14.0 (Sonoma) or later
-- Apple Silicon Mac (M1 or later recommended)
-- Xcode 15+ to build from source
+- Apple Silicon recommended (M1/M2/M3/M4) for fast transcription
+- Xcode 16+ or Swift 5.9+ command line tools
+- ~150MB disk for the base model, ~3GB for large-v3
 
 ## Build
 
 ```bash
-# Clone the repo
 git clone https://github.com/apollinej/apolline-production.git
 cd apolline-production/Timbre
-
-# Open in Xcode (pick scheme "Timbre" in the toolbar, then Run ▶)
-open Package.swift
-
-# Or double-click `open-in-xcode.command` in Finder
-
-# Command line
-swift run
-swift test
-
-# Xcode command-line build (from this Timbre folder)
-xcodebuild -scheme Timbre -destination 'platform=macOS' build
+./build.sh
+open Timbre.app
 ```
 
-### Xcode tips
+Or for a release build installed to /Applications:
 
-1. Open **`Package.swift`** (not the parent folder only)—Xcode loads the Swift package.
-2. Wait for **Resolve Package Dependencies** to finish (WhisperKit pulls sub-dependencies).
-3. Scheme **Timbre** should appear automatically; if not: **Product → Scheme → Timbre**.
-4. **Run** builds the `Timbre` executable and launches the window.
+```bash
+./build.sh install
+```
 
-## Where your data lives
+### Build options
 
-All memos, transcripts, speaker renames, and folders are stored under **your Desktop**:
+| Command | What it does |
+|---------|-------------|
+| `./build.sh` | Debug build, creates Timbre.app in project dir |
+| `./build.sh release` | Optimized release build |
+| `./build.sh install` | Release build + copy to /Applications |
+| `./build.sh clean` | Remove build artifacts |
 
-| What | Location |
-|------|----------|
-| **SwiftData database** (metadata + full transcript text + speaker names) | `~/Desktop/apolline-production/timbre/timbre.store` |
-| **Imported audio files** (copies) | `~/Desktop/apolline-production/timbre/library/` |
-| **Plain-text transcript mirrors** (same content as export → plain text) | `~/Desktop/apolline-production/timbre/transcripts/<memo-uuid>.txt` |
-| **Whisper ML models** (download cache) | `~/Library/Application Support/Timbre/Models/` |
+### Open in Xcode
 
-On first launch, Timbre creates `~/Desktop/apolline-production/timbre/`, `library/`, and `transcripts/` if needed. Imports **copy** the audio into `library/` so your library is self-contained on the Desktop.
+```bash
+open Package.swift
+```
 
-### Legacy database migration
+Then select the `Timbre` scheme and hit ⌘R.
 
-If you used Timbre **before** data moved to the Desktop, your old store was probably:
+## Supported formats
 
-`~/Library/Application Support/default.store`
+`.m4a` `.mp3` `.wav` `.flac` `.aac` `.caf` `.aiff` `.aac` `.m4p` `.aifc` `.mp4`
 
-On first run, if that file looks like a Timbre database (has a `ZMEMO` table) **and** your Desktop `timbre.store` has no memos yet, Timbre **copies** the legacy store (including `-wal` / `-shm` if present) into `~/Desktop/apolline-production/timbre/timbre.store` once. The original `default.store` is left in place as a backup.
+## How it works
 
-### Transcript `.txt` files
+1. Import a voice memo (drag-and-drop or file picker)
+2. Click "start transcription" — WhisperKit transcribes on the Neural Engine
+3. SpeakerKit runs pyannote diarization to identify speakers
+4. Segments are merged by speaker into readable blocks
+5. Transcript is saved locally and mirrored as a .txt file
 
-Whenever a transcription finishes, you rename a memo, or you rename a speaker, Timbre refreshes the `.txt` files under `transcripts/`. Deleting a memo removes its matching file. Orphan `.txt` files are removed on the next full sync when the app opens.
+Models are downloaded automatically on first use from HuggingFace. No token required — the community pyannote model (CC-BY-4.0) is used by default.
 
-**Note:** If you later wrap Timbre in a **sandboxed** Mac app, writing to the Desktop may require extra entitlements or a user-chosen folder—this setup targets the default non-sandboxed Swift package run from Xcode / `swift run`.
+## Storage
 
-## Models
+By default, files are stored in `~/Documents/Timbre/`. You can change this in Settings.
 
-Timbre downloads transcription models on first use. Available models:
+```
+~/Documents/Timbre/
+├── library/        # Imported audio files
+├── transcripts/    # Plain text transcript mirrors
+├── models/         # WhisperKit model cache
+└── timbre.store    # SwiftData database
+```
 
-| Model | Size | Notes |
-|-------|------|-------|
-| tiny.en | ~75 MB | Fastest, English only |
-| base.en | ~150 MB | Good balance (default) |
-| small.en | ~500 MB | Higher accuracy, English only |
-| large-v3 | ~3 GB | Best accuracy, multilingual. 16GB+ RAM recommended |
+## Tech stack
 
-Models are cached in `~/Library/Application Support/Timbre/Models/`.
-
-## Architecture
-
-- **SwiftUI** with NavigationSplitView
-- **SwiftData** for local persistence
-- **WhisperKit** + **SpeakerKit** for on-device ML
-- **AVFoundation** for audio playback
-- **MVVM** with @Observable (Swift Observation framework)
+- **Swift 5.9+** / **SwiftUI** (macOS native, no Electron)
+- **WhisperKit** — CoreML Whisper on Apple Neural Engine
+- **SpeakerKit** — on-device pyannote speaker diarization
+- **SwiftData** — local persistence
+- **AVFoundation** — audio playback and waveform extraction
 
 ## License
 

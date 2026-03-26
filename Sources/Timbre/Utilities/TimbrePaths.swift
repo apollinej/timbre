@@ -1,19 +1,46 @@
 import Foundation
 
-/// All Timbre user data lives under `~/Desktop/apolline-production/timbre/`.
+/// All Timbre user data lives under a configurable root directory.
+/// Default: `~/Documents/Timbre/`
+/// User can change via Settings.
 enum TimbrePaths {
-    private static let rootFolderName = "apolline-production"
-    private static let timbreFolderName = "timbre"
+    private static let defaultRoot = "Documents/Timbre"
+    private static let rootKey = "timbreStorageRoot"
 
-    /// `~/Desktop/apolline-production/timbre`
+    /// User-configurable storage root. Persisted in UserDefaults.
     static var root: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Desktop", isDirectory: true)
-            .appendingPathComponent(rootFolderName, isDirectory: true)
-            .appendingPathComponent(timbreFolderName, isDirectory: true)
+        if let custom = UserDefaults.standard.string(forKey: rootKey),
+           !custom.isEmpty {
+            let url = URL(fileURLWithPath: custom, isDirectory: true)
+            if FileManager.default.isWritableFile(atPath: url.path) {
+                return url
+            }
+        }
+        return FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(defaultRoot, isDirectory: true)
     }
 
-    /// Copied voice memo files (`~/Desktop/.../timbre/library`)
+    /// Set a new storage root. Returns false if the path isn't writable.
+    @discardableResult
+    static func setRoot(_ path: String) -> Bool {
+        let url = URL(fileURLWithPath: path, isDirectory: true)
+        // Create if needed
+        try? FileManager.default.createDirectory(
+            at: url, withIntermediateDirectories: true
+        )
+        guard FileManager.default.isWritableFile(atPath: url.path) else {
+            return false
+        }
+        UserDefaults.standard.set(path, forKey: rootKey)
+        return true
+    }
+
+    /// Reset to default location.
+    static func resetToDefault() {
+        UserDefaults.standard.removeObject(forKey: rootKey)
+    }
+
+    /// Copied voice memo files
     static var library: URL {
         root.appendingPathComponent("library", isDirectory: true)
     }
@@ -23,19 +50,32 @@ enum TimbrePaths {
         root.appendingPathComponent("transcripts", isDirectory: true)
     }
 
-    /// SwiftData store file (memos, folders, transcripts, segments, speakers, renames).
+    /// SwiftData store file
     static var databaseStoreURL: URL {
         root.appendingPathComponent("timbre.store", isDirectory: false)
     }
 
-    /// Creates `timbre/`, `library/`, and `transcripts/` if missing.
+    /// WhisperKit model cache
+    static var modelCache: URL {
+        root.appendingPathComponent("models", isDirectory: true)
+    }
+
+    /// Creates all required subdirectories.
     static func prepareStorageDirectories() throws {
         let fm = FileManager.default
         try fm.createDirectory(at: root, withIntermediateDirectories: true)
         try fm.createDirectory(at: library, withIntermediateDirectories: true)
         try fm.createDirectory(at: transcripts, withIntermediateDirectories: true)
+        try fm.createDirectory(at: modelCache, withIntermediateDirectories: true)
     }
 
-    /// Human-readable path for About / debugging.
+    /// Human-readable path for display.
     static var rootPath: String { root.path }
+
+    /// Default root path for display.
+    static var defaultRootPath: String {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(defaultRoot, isDirectory: true)
+            .path
+    }
 }

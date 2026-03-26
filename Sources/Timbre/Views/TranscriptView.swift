@@ -100,11 +100,15 @@ struct TranscriptView: View {
                 }
             )
 
-            // Waveform
+            // Waveform — click/drag to seek (synced with playback bar)
             if !viewModel.waveformSamples.isEmpty {
                 WaveformView(
                     samples: viewModel.waveformSamples,
-                    progress: viewModel.playbackProgress
+                    progress: viewModel.playbackProgress,
+                    onSeek: { fraction in
+                        let time = fraction * viewModel.duration
+                        viewModel.seek(to: time)
+                    }
                 )
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
