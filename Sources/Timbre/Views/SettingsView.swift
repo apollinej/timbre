@@ -1,31 +1,19 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @State private var viewModel = SettingsViewModel()
+    @State private var modelManager = ModelManager()
+    @AppStorage("autoTranscribe") private var autoTranscribe = false
 
     var body: some View {
         Form {
             Section("Transcription Model") {
-                Picker("Model", selection: Binding(
-                    get: { viewModel.modelManager.selectedModel },
-                    set: { viewModel.modelManager.selectModel($0) }
-                )) {
+                Picker("Model", selection: $modelManager.selectedModel) {
                     ForEach(WhisperModel.allCases) { model in
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(model.displayName)
-                                Text(model.sizeDescription)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            if model.requiresHighRAM {
-                                Text("16GB+ RAM")
-                                    .font(.caption2)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(.yellow.opacity(0.2))
-                                    .clipShape(Capsule())
-                            }
+                        VStack(alignment: .leading) {
+                            Text(model.displayName)
+                            Text(model.description)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                         .tag(model)
                     }
@@ -33,19 +21,11 @@ struct SettingsView: View {
                 .pickerStyle(.radioGroup)
             }
 
-            Section("Behavior") {
-                Toggle("Auto-transcribe on import", isOn: $viewModel.autoTranscribe)
-            }
-
-            Section("Export") {
-                Picker("Default format", selection: $viewModel.defaultExportFormat) {
-                    ForEach(ExportFormat.allCases) { format in
-                        Text(format.displayName).tag(format)
-                    }
-                }
+            Section("Import") {
+                Toggle("Auto-transcribe on import", isOn: $autoTranscribe)
             }
         }
         .formStyle(.grouped)
-        .frame(width: 450, height: 350)
+        .frame(width: 450, height: 300)
     }
 }

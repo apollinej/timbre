@@ -4,16 +4,21 @@ import SwiftData
 @Model
 final class Transcript {
     var id: UUID
-    @Relationship(deleteRule: .cascade, inverse: \Segment.transcript) var segments: [Segment]
+    @Relationship(deleteRule: .cascade) var segments: [Segment]
     var modelUsed: String
     var dateTranscribed: Date
     var language: String?
 
-    init(modelUsed: String, language: String? = nil) {
+    init(
+        segments: [Segment] = [],
+        modelUsed: String,
+        dateTranscribed: Date = .now,
+        language: String? = nil
+    ) {
         self.id = UUID()
-        self.segments = []
+        self.segments = segments
         self.modelUsed = modelUsed
-        self.dateTranscribed = Date()
+        self.dateTranscribed = dateTranscribed
         self.language = language
     }
 
@@ -21,7 +26,7 @@ final class Transcript {
         segments.sorted { $0.startTime < $1.startTime }
     }
 
-    var fullText: String {
-        sortedSegments.map { $0.text }.joined(separator: " ")
+    var speakerCount: Int {
+        Set(segments.compactMap { $0.speaker?.id }).count
     }
 }

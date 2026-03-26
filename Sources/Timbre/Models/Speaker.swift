@@ -1,6 +1,5 @@
 import Foundation
 import SwiftData
-import SwiftUI
 
 @Model
 final class Speaker {
@@ -9,18 +8,18 @@ final class Speaker {
     var displayName: String?
     var colorHex: String
 
-    init(label: String, colorHex: String) {
+    init(
+        label: String,
+        displayName: String? = nil,
+        colorHex: String
+    ) {
         self.id = UUID()
         self.label = label
-        self.displayName = nil
+        self.displayName = displayName
         self.colorHex = colorHex
     }
 
-    var name: String {
+    var effectiveName: String {
         displayName ?? label
-    }
-
-    var color: Color {
-        Color(hex: colorHex)
     }
 }

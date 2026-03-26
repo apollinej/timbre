@@ -1,58 +1,82 @@
 import SwiftUI
 
 struct PlaybackBar: View {
-    let viewModel: TranscriptViewModel
-    let duration: TimeInterval
+    @Bindable var viewModel: TranscriptViewModel
 
     var body: some View {
-        HStack(spacing: 16) {
-            // Seek backward
-            Button {
-                let newTime = max(0, viewModel.currentTime - 10)
-                viewModel.seek(to: newTime)
-            } label: {
-                Image(systemName: "gobackward.10")
+        VStack(spacing: 0) {
+            // Top bevel
+            Rectangle().fill(Color.white.opacity(0.3)).frame(height: 1)
+
+            HStack(spacing: 6) {
+                // Transport bubble buttons
+                BubbleButton(icon: "backward.end.fill", size: 28, color: Color(hex: "7098C0")) {
+                    viewModel.seek(to: max(0, viewModel.currentTime - 10))
+                }
+
+                BubbleButton(
+                    icon: viewModel.isPlaying ? "pause.fill" : "play.fill",
+                    size: 34,
+                    color: Color(hex: "5888D0")
+                ) {
+                    viewModel.togglePlayback()
+                }
+
+                BubbleButton(icon: "forward.end.fill", size: 28, color: Color(hex: "7098C0")) {
+                    viewModel.seek(to: min(viewModel.duration, viewModel.currentTime + 10))
+                }
+
+                // Time display
+                Text(TimeFormatter.format(viewModel.currentTime))
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color(hex: "3868A0"))
+                    .frame(width: 50, alignment: .trailing)
+
+                // Seek bar — chrome inset
+                ChromeInset {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Color(hex: "2A4060")
+
+                            // Green progress (like classic QuickTime!)
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color(hex: "60C060"), Color(hex: "40A840")],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
+                                .frame(
+                                    width: geo.size.width * (viewModel.duration > 0
+                                        ? viewModel.currentTime / viewModel.duration : 0)
+                                )
+                                .overlay(
+                                    VStack {
+                                        Rectangle().fill(Color.white.opacity(0.3)).frame(height: 1)
+                                        Spacer()
+                                    }
+                                )
+                        }
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { value in
+                                    let frac = max(0, min(1, value.location.x / geo.size.width))
+                                    viewModel.seek(to: frac * viewModel.duration)
+                                }
+                        )
+                    }
+                }
+                .frame(height: 10)
+
+                Text(TimeFormatter.format(viewModel.duration))
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(Color(hex: "7898B0"))
+                    .frame(width: 50)
             }
-            .buttonStyle(.borderless)
-
-            // Play/pause
-            Button {
-                viewModel.togglePlayback()
-            } label: {
-                Image(systemName: viewModel.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.title2)
-            }
-            .buttonStyle(.borderless)
-            .keyboardShortcut(.space, modifiers: [])
-
-            // Seek forward
-            Button {
-                let newTime = min(duration, viewModel.currentTime + 10)
-                viewModel.seek(to: newTime)
-            } label: {
-                Image(systemName: "goforward.10")
-            }
-            .buttonStyle(.borderless)
-
-            // Time display
-            Text(TimeFormatter.format(viewModel.currentTime))
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
-
-            // Progress slider
-            Slider(
-                value: Binding(
-                    get: { viewModel.currentTime },
-                    set: { viewModel.seek(to: $0) }
-                ),
-                in: 0...max(duration, 0.01)
-            )
-
-            Text(TimeFormatter.format(duration))
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(BrushedMetal(baseColor: Color(hex: "B8BCC8"), intensity: 0.3))
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
     }
 }

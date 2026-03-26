@@ -3,73 +3,27 @@ import SwiftData
 
 @main
 struct TimbreApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ChromeWindow {
+                ContentView()
+            }
+            .ignoresSafeArea()
         }
-        .modelContainer(for: [Memo.self, Transcript.self, Segment.self, Speaker.self])
-
-        Settings {
-            SettingsView()
-        }
+        .modelContainer(for: [Folder.self, Memo.self, Transcript.self, Segment.self, Speaker.self])
+        .defaultSize(width: 880, height: 580)
     }
 }
 
-struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Memo.dateImported, order: .reverse) private var memos: [Memo]
-    @State private var selectedMemo: Memo?
-    @State private var isTargeted = false
-
-    var body: some View {
-        NavigationSplitView {
-            LibraryView(memos: memos, selectedMemo: $selectedMemo)
-        } detail: {
-            if let memo = selectedMemo {
-                TranscriptView(memo: memo)
-            } else {
-                EmptyStateView()
-            }
-        }
-        .frame(minWidth: 800, minHeight: 500)
-        .onDrop(of: [.audio, .fileURL], isTargeted: $isTargeted) { providers in
-            handleDrop(providers)
-            return true
-        }
-        .overlay {
-            if isTargeted {
-                ImportDropZone()
-            }
-        }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    importFiles()
-                } label: {
-                    Label("Import", systemImage: "plus")
-                }
-                .keyboardShortcut("i", modifiers: .command)
-            }
-        }
-    }
-
-    private func importFiles() {
-        Task {
-            let importer = AudioImporter(modelContext: modelContext)
-            await importer.showImportPanel()
-        }
-    }
-
-    private func handleDrop(_ providers: [NSItemProvider]) {
-        let importer = AudioImporter(modelContext: modelContext)
-        for provider in providers {
-            provider.loadItem(forTypeIdentifier: "public.file-url") { data, _ in
-                guard let data = data as? Data,
-                      let url = URL(dataRepresentation: data, relativeTo: nil)
-                else { return }
-                Task { @MainActor in
-                    await importer.importFile(at: url)
-                }
+class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        DispatchQueue.main.async {
+            for window in NSApplication.shared.windows {
+                window.isOpaque = true
+                window.backgroundColor = NSColor(red: 0.72, green: 0.75, blue: 0.82, alpha: 1)
+                window.hasShadow = true
             }
         }
     }

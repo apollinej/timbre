@@ -7,8 +7,7 @@ final class Segment {
     var text: String
     var startTime: TimeInterval
     var endTime: TimeInterval
-    @Relationship var speaker: Speaker?
-    @Relationship var transcript: Transcript?
+    var speaker: Speaker?
     var confidence: Float?
 
     init(
@@ -26,11 +25,7 @@ final class Segment {
         self.confidence = confidence
     }
 
-    var durationText: String {
-        TimeFormatter.format(startTime)
-    }
-
-    var rangeText: String {
-        "\(TimeFormatter.format(startTime)) – \(TimeFormatter.format(endTime))"
+    var duration: TimeInterval {
+        endTime - startTime
     }
 }

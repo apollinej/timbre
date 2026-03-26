@@ -1,6 +1,33 @@
 import Foundation
 import WhisperKit
 
+@Observable
+final class ModelManager {
+    var availableModels: [WhisperModel] = WhisperModel.allCases
+    var selectedModel: WhisperModel = .baseEn
+    var downloadProgress: Double = 0
+    var isDownloading = false
+    var downloadedModels: Set<String> = []
+
+    func refreshDownloadedModels() async {
+        let supportDir = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first?.appendingPathComponent("Timbre/Models")
+
+        guard let supportDir,
+              let contents = try? FileManager.default
+                  .contentsOfDirectory(atPath: supportDir.path)
+        else { return }
+
+        downloadedModels = Set(contents)
+    }
+
+    func isDownloaded(_ model: WhisperModel) -> Bool {
+        downloadedModels.contains(model.name)
+    }
+}
+
 enum WhisperModel: String, CaseIterable, Identifiable {
     case tinyEn = "tiny.en"
     case baseEn = "base.en"
@@ -8,6 +35,7 @@ enum WhisperModel: String, CaseIterable, Identifiable {
     case largeV3 = "large-v3"
 
     var id: String { rawValue }
+    var name: String { rawValue }
 
     var displayName: String {
         switch self {
@@ -18,48 +46,21 @@ enum WhisperModel: String, CaseIterable, Identifiable {
         }
     }
 
-    var sizeDescription: String {
+    var description: String {
         switch self {
-        case .tinyEn: "~75 MB"
-        case .baseEn: "~150 MB"
-        case .smallEn: "~500 MB"
-        case .largeV3: "~3 GB"
+        case .tinyEn: "Fastest, lowest accuracy. ~75 MB"
+        case .baseEn: "Fast, good for quick drafts. ~150 MB"
+        case .smallEn: "Balanced speed and accuracy. ~500 MB"
+        case .largeV3: "Best accuracy, multilingual. ~3 GB"
         }
     }
 
-    var requiresHighRAM: Bool {
-        self == .largeV3
-    }
-}
-
-@Observable
-final class ModelManager {
-    var selectedModel: WhisperModel = .baseEn
-    var isDownloading = false
-    var downloadProgress: Double = 0
-
-    static let shared = ModelManager()
-
-    private init() {
-        if let saved = UserDefaults.standard.string(forKey: "selectedModel"),
-           let model = WhisperModel(rawValue: saved) {
-            selectedModel = model
+    var approximateSize: String {
+        switch self {
+        case .tinyEn: "75 MB"
+        case .baseEn: "150 MB"
+        case .smallEn: "500 MB"
+        case .largeV3: "3 GB"
         }
-    }
-
-    func selectModel(_ model: WhisperModel) {
-        selectedModel = model
-        UserDefaults.standard.set(model.rawValue, forKey: "selectedModel")
-    }
-
-    var modelsDirectory: URL {
-        let appSupport = FileManager.default.urls(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask
-        ).first ?? FileManager.default.temporaryDirectory
-
-        let dir = appSupport.appendingPathComponent("Timbre/Models")
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
     }
 }

@@ -3,23 +3,24 @@ import SwiftUI
 struct ImportDropZone: View {
     var body: some View {
         ZStack {
-            Color.accentColor.opacity(0.05)
+            Theme.iridescentLilac.opacity(0.15)
                 .ignoresSafeArea()
 
-            RoundedRectangle(cornerRadius: 16)
+            Rectangle()
                 .strokeBorder(
-                    Color.accentColor,
-                    style: StrokeStyle(lineWidth: 3, dash: [12, 8])
+                    Theme.accent,
+                    style: StrokeStyle(lineWidth: 2, dash: [6, 3])
                 )
-                .padding(24)
+                .padding(16)
 
-            VStack(spacing: 12) {
-                Image(systemName: "arrow.down.doc")
-                    .font(.system(size: 48))
-                    .foregroundStyle(.accent)
-                Text("Drop audio files to import")
-                    .font(.title2)
-                    .foregroundStyle(.accent)
+            VStack(spacing: 8) {
+                Image(systemName: "arrow.down.doc.fill")
+                    .font(.system(size: 32))
+                    .foregroundStyle(Theme.accent)
+
+                Text("DROP TO IMPORT")
+                    .font(Theme.titleFont)
+                    .foregroundStyle(Theme.accent)
             }
         }
         .allowsHitTesting(false)

@@ -1,55 +1,72 @@
-import AppKit
-import AVFoundation
+import Foundation
 import SwiftData
 import UniformTypeIdentifiers
 
-@MainActor
+@Observable
 final class AudioImporter {
-    private let modelContext: ModelContext
+    var isImporting = false
+    var lastError: String?
 
-    init(modelContext: ModelContext) {
-        self.modelContext = modelContext
-    }
+    static let voiceMemosPath: URL? = {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let path = home
+            .appendingPathComponent("Library/Group Containers")
+            .appendingPathComponent("group.com.apple.VoiceMemos.shared")
+            .appendingPathComponent("Recordings")
+        return FileManager.default.fileExists(atPath: path.path) ? path : nil
+    }()
 
-    func showImportPanel() async {
-        let panel = NSOpenPanel()
-        panel.title = "Import Audio"
-        panel.allowsMultipleSelection = true
-        panel.canChooseDirectories = false
-        panel.allowedContentTypes = [.audio, .mpeg4Audio, .wav, .mp3, .aiff]
+    static let supportedTypes: [UTType] = [
+        .audio,
+        .mpeg4Audio,
+        .wav,
+        .mp3,
+        UTType(filenameExtension: "flac")!,
+        .aiff,
+    ]
 
-        // Try to start in Voice Memos folder
-        let voiceMemosPath = NSHomeDirectory() +
-            "/Library/Group Containers/group.com.apple.VoiceMemos.shared/Recordings"
-        if FileManager.default.fileExists(atPath: voiceMemosPath) {
-            panel.directoryURL = URL(fileURLWithPath: voiceMemosPath)
+    func importFiles(
+        _ urls: [URL],
+        into context: ModelContext
+    ) async -> [Memo] {
+        isImporting = true
+        lastError = nil
+        defer { isImporting = false }
+
+        var imported: [Memo] = []
+
+        for url in urls {
+            guard AudioFileHelper.isSupported(url) else {
+                lastError = "Unsupported format: \(url.pathExtension)"
+                continue
+            }
+
+            do {
+                let memo = try await importSingleFile(url, into: context)
+                imported.append(memo)
+            } catch {
+                lastError = "Failed to import \(url.lastPathComponent): \(error.localizedDescription)"
+            }
         }
 
-        let response = await panel.beginSheetModal(for: NSApp.keyWindow ?? NSWindow())
-        guard response == .OK else { return }
-
-        for url in panel.urls {
-            await importFile(at: url)
-        }
+        return imported
     }
 
-    func importFile(at url: URL) async {
-        guard AudioUtilities.isSupported(url) else { return }
-
+    private func importSingleFile(
+        _ url: URL,
+        into context: ModelContext
+    ) async throws -> Memo {
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
 
-        guard let bookmark = try? url.bookmarkData(
+        let metadata = try await AudioFileHelper.metadata(for: url)
+
+        // Create security-scoped bookmark for future access
+        let bookmark = try? url.bookmarkData(
             options: .withSecurityScope,
             includingResourceValuesForKeys: nil,
             relativeTo: nil
-        ) else { return }
-
-        guard let metadata = try? await AudioUtilities.metadata(for: url) else { return }
-
-        let fileSize = (try? FileManager.default.attributesOfItem(
-            atPath: url.path
-        )[.size] as? Int64) ?? 0
+        )
 
         let title = url.deletingPathExtension().lastPathComponent
 
@@ -57,12 +74,14 @@ final class AudioImporter {
             title: title,
             sourceURL: url,
             audioBookmark: bookmark,
-            dateRecorded: metadata.dateRecorded,
+            dateRecorded: metadata.creationDate,
             duration: metadata.duration,
-            fileSize: fileSize
+            fileSize: metadata.fileSize
         )
 
-        modelContext.insert(memo)
-        try? modelContext.save()
+        context.insert(memo)
+        try context.save()
+
+        return memo
     }
 }

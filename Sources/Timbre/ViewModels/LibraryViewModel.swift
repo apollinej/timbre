@@ -4,26 +4,27 @@ import SwiftData
 @Observable
 final class LibraryViewModel {
     var searchText = ""
+    var sortOrder: SortOrder = .dateDescending
 
-    func filteredMemos(_ memos: [Memo]) -> [Memo] {
-        guard !searchText.isEmpty else { return memos }
-        let query = searchText.lowercased()
-        return memos.filter { memo in
-            memo.title.lowercased().contains(query) ||
-            memo.transcript?.fullText.lowercased().contains(query) == true
+    enum SortOrder: String, CaseIterable {
+        case dateDescending = "Newest First"
+        case dateAscending = "Oldest First"
+        case titleAscending = "Title A-Z"
+        case durationDescending = "Longest First"
+    }
+
+    func sorted(_ memos: [Memo]) -> [Memo] {
+        let filtered = searchText.isEmpty
+            ? memos
+            : memos.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
+
+        return filtered.sorted { a, b in
+            switch sortOrder {
+            case .dateDescending: a.dateImported > b.dateImported
+            case .dateAscending: a.dateImported < b.dateImported
+            case .titleAscending: a.title.localizedCompare(b.title) == .orderedAscending
+            case .durationDescending: a.duration > b.duration
+            }
         }
-    }
-
-    func deleteMemo(_ memo: Memo, from context: ModelContext) {
-        context.delete(memo)
-        try? context.save()
-    }
-
-    func formattedDuration(_ duration: TimeInterval) -> String {
-        TimeFormatter.format(duration)
-    }
-
-    func formattedDate(_ date: Date) -> String {
-        date.formatted(date: .abbreviated, time: .shortened)
     }
 }

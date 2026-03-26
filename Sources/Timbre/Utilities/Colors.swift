@@ -1,30 +1,28 @@
 import SwiftUI
 
 enum SpeakerColors {
-    static let palette: [String] = [
-        "007AFF", // Blue
-        "FF9500", // Orange
-        "34C759", // Green
-        "AF52DE", // Purple
-        "FF2D55", // Pink
-        "5AC8FA", // Teal
-        "FFCC00", // Yellow
-        "FF3B30", // Red
-    ]
+    static let palette = Theme.speakerPalette
 
-    static func color(for index: Int) -> String {
+    static func color(for index: Int) -> Color {
+        Color(hex: palette[index % palette.count])
+    }
+
+    static func hex(for index: Int) -> String {
         palette[index % palette.count]
     }
 }
 
 extension Color {
     init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let r = Double((int >> 16) & 0xFF) / 255.0
-        let g = Double((int >> 8) & 0xFF) / 255.0
-        let b = Double(int & 0xFF) / 255.0
+        let hex = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+        let scanner = Scanner(string: hex)
+        var rgbValue: UInt64 = 0
+        scanner.scanHexInt64(&rgbValue)
+
+        let r = Double((rgbValue & 0xFF0000) >> 16) / 255.0
+        let g = Double((rgbValue & 0x00FF00) >> 8) / 255.0
+        let b = Double((rgbValue & 0x0000FF)) / 255.0
+
         self.init(red: r, green: g, blue: b)
     }
 }
