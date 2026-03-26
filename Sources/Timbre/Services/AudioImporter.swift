@@ -61,8 +61,19 @@ final class AudioImporter {
 
         let metadata = try await AudioFileHelper.metadata(for: url)
 
-        // Create security-scoped bookmark for future access
-        let bookmark = try? url.bookmarkData(
+        try TimbrePaths.prepareStorageDirectories()
+
+        let rawExt = url.pathExtension.lowercased()
+        let ext = rawExt.isEmpty ? "m4a" : rawExt
+        let dest = TimbrePaths.library.appendingPathComponent("\(UUID().uuidString).\(ext)")
+
+        let fm = FileManager.default
+        if fm.fileExists(atPath: dest.path) {
+            try fm.removeItem(at: dest)
+        }
+        try fm.copyItem(at: url, to: dest)
+
+        let bookmark = try? dest.bookmarkData(
             options: .withSecurityScope,
             includingResourceValuesForKeys: nil,
             relativeTo: nil
@@ -72,7 +83,7 @@ final class AudioImporter {
 
         let memo = Memo(
             title: title,
-            sourceURL: url,
+            sourceURL: dest,
             audioBookmark: bookmark,
             dateRecorded: metadata.creationDate,
             duration: metadata.duration,

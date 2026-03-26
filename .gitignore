@@ -18,7 +18,8 @@ xcuserdata/
 
 # Swift Package Manager
 .build/
-.swiftpm/
+.swiftpm/xcode/xcuserdata/
+.swiftpm/configuration/
 Packages/
 Package.resolved
 

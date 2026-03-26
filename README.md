@@ -24,12 +24,39 @@ Native macOS app that converts voice recordings into clean, speaker-attributed t
 git clone https://github.com/apollinej/apolline-production.git
 cd apolline-production/Timbre
 
-# Open in Xcode
+# Open in Xcode (pick scheme "Timbre" in the toolbar, then Run ▶)
 open Package.swift
 
-# Or build from command line
+# Or double-click `open-in-xcode.command` in Finder
+
+# Command line
+swift run
+swift test
+
+# Xcode command-line build (from this Timbre folder)
 xcodebuild -scheme Timbre -destination 'platform=macOS' build
 ```
+
+### Xcode tips
+
+1. Open **`Package.swift`** (not the parent folder only)—Xcode loads the Swift package.
+2. Wait for **Resolve Package Dependencies** to finish (WhisperKit pulls sub-dependencies).
+3. Scheme **Timbre** should appear automatically; if not: **Product → Scheme → Timbre**.
+4. **Run** builds the `Timbre` executable and launches the window.
+
+## Where your data lives
+
+All memos, transcripts, speaker renames, and folders are stored under **your Desktop**:
+
+| What | Location |
+|------|----------|
+| **SwiftData database** (metadata + full transcript text + speaker names) | `~/Desktop/apolline-production/timbre/timbre.store` |
+| **Imported audio files** (copies) | `~/Desktop/apolline-production/timbre/library/` |
+| **Whisper ML models** (download cache) | `~/Library/Application Support/Timbre/Models/` |
+
+On first launch, Timbre creates `~/Desktop/apolline-production/timbre/` and `library/` if needed. Imports **copy** the audio into `library/` so your library is self-contained on the Desktop.
+
+**Note:** If you later wrap Timbre in a **sandboxed** Mac app, writing to the Desktop may require extra entitlements or a user-chosen folder—this setup targets the default non-sandboxed Swift package run from Xcode / `swift run`.
 
 ## Models
 

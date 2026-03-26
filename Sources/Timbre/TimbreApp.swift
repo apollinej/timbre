@@ -5,8 +5,31 @@ import SwiftData
 struct TimbreApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
+    private let modelContainer: ModelContainer
+
     init() {
         TimbreFont.register()
+
+        do {
+            try TimbrePaths.prepareStorageDirectories()
+            let schema = Schema([
+                Folder.self,
+                Memo.self,
+                Transcript.self,
+                Segment.self,
+                Speaker.self,
+            ])
+            let configuration = ModelConfiguration(
+                schema: schema,
+                url: TimbrePaths.databaseStoreURL
+            )
+            modelContainer = try ModelContainer(
+                for: schema,
+                configurations: [configuration]
+            )
+        } catch {
+            fatalError("Timbre could not open storage at \(TimbrePaths.rootPath): \(error.localizedDescription)")
+        }
     }
 
     var body: some Scene {
@@ -16,7 +39,7 @@ struct TimbreApp: App {
             }
             .ignoresSafeArea()
         }
-        .modelContainer(for: [Folder.self, Memo.self, Transcript.self, Segment.self, Speaker.self])
+        .modelContainer(modelContainer)
         .defaultSize(width: 960, height: 620)
     }
 }
