@@ -4,37 +4,59 @@ struct EmptyStateView: View {
     let importer: AudioImporter
 
     var body: some View {
-        VStack(spacing: 16) {
-            // Waveform icon as a bubble
-            ZStack {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [Color(hex: "90B8E0").opacity(0.3), Color.clear],
-                            center: .center,
-                            startRadius: 10,
-                            endRadius: 50
+        ZStack {
+            VStack(spacing: 16) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [Color(hex: "00FFFF").opacity(0.4), Color.clear],
+                                center: .center,
+                                startRadius: 12,
+                                endRadius: 56
+                            )
                         )
-                    )
-                    .frame(width: 100, height: 100)
+                        .frame(width: 112, height: 112)
 
-                Image(systemName: "waveform")
-                    .font(.system(size: 40, weight: .thin))
-                    .foregroundStyle(Color(hex: "7898B8"))
+                    Image(systemName: "waveform")
+                        .font(.system(size: 40, weight: .thin))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [Color(hex: "00D8FF"), Color(hex: "0080FF")],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                }
+
+                Text("import a voice memo")
+                    .font(TimbreFont.fontBold(size: 22))
+                    .foregroundStyle(Color(hex: "044060"))
+
+                Text("drag an audio file here or click + to browse")
+                    .font(Theme.bodyFont)
+                    .foregroundStyle(Color(hex: "0088C8"))
+
+                Text(".m4a  .wav  .mp3  .flac  .aac  .caf  .aiff")
+                    .font(Theme.captionFont)
+                    .foregroundStyle(Color(hex: "20B0E0"))
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            Text("import a voice memo")
-                .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                .foregroundStyle(Color(hex: "5070A0"))
-
-            Text("drag an audio file here or click + to browse")
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(Color(hex: "8898B0"))
-
-            Text(".m4a  .wav  .mp3  .flac  .aac  .caf  .aiff")
-                .font(.system(size: 9, design: .monospaced))
-                .foregroundStyle(Color(hex: "A0A8B8"))
+            VStack {
+                HStack {
+                    PixelStar(color: Color(hex: "00FF88"))
+                    Spacer()
+                    PixelStar(color: Color(hex: "00C8FF"))
+                }
+                Spacer()
+                HStack {
+                    Spacer()
+                    ChromeCornerGrip()
+                }
+            }
+            .padding(12)
+            .allowsHitTesting(false)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

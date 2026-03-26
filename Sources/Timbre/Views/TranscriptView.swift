@@ -1,39 +1,27 @@
 import SwiftUI
 import SwiftData
 
-// Iridescent silver background used across detail views
 struct IridescentBackground: View {
     var body: some View {
         ZStack {
-            // Base silver
-            Color(hex: "C8C4D8")
+            Color(hex: "E8F8FF")
 
-            // Iridescent shift
+            Theme.iridescent
+
             LinearGradient(
                 colors: [
-                    Color(hex: "D0C8E0"),
-                    Color(hex: "C0CCE0"),
-                    Color(hex: "D4C4D8"),
-                    Color(hex: "C8D0E8"),
-                    Color(hex: "D8CCE0"),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            // Shimmer streaks
-            LinearGradient(
-                colors: [
-                    Color.white.opacity(0.2),
+                    Color.white.opacity(0.35),
                     Color.clear,
-                    Color.white.opacity(0.1),
+                    Color(hex: "00FFFF").opacity(0.12),
                     Color.clear,
-                    Color.white.opacity(0.15),
+                    Color.white.opacity(0.22),
                     Color.clear,
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
+
+            SubtleScanlines()
         }
     }
 }
@@ -45,64 +33,68 @@ struct TranscriptView: View {
     @AppStorage("selectedModel") private var selectedModelRaw = WhisperModel.baseEn.rawValue
     @State private var copiedToast = false
     @State private var renamingSpeaker: Speaker?
+    @State private var celebrationID: UUID?
 
     private var selectedModel: WhisperModel {
         WhisperModel(rawValue: selectedModelRaw) ?? .baseEn
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Top chrome bar
+        ZStack {
+            VStack(spacing: 0) {
             HStack {
-                Text(memo.title.lowercased())
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .foregroundStyle(Color(hex: "2A4A70"))
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    PixelStar(color: Color(hex: "00C8FF"))
+                    Text(memo.title.lowercased())
+                        .font(TimbreFont.fontBold(size: 16))
+                        .foregroundStyle(Color(hex: "044060"))
+                        .lineLimit(2)
+                }
 
                 Spacer()
 
                 if memo.status == .completed {
                     Button { copyTranscriptToClipboard() } label: {
-                        HStack(spacing: 3) {
+                        HStack(spacing: 6) {
                             Image(systemName: "doc.on.doc")
-                                .font(.system(size: 9))
+                                .font(.system(size: 14, weight: .semibold))
                             Text("copy")
-                                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                .font(TimbreFont.fontBold(size: 14))
                         }
-                        .foregroundStyle(Color(hex: "3080C0"))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color(hex: "3080C0").opacity(0.1))
-                        .overlay(
-                            Rectangle()
-                                .strokeBorder(Color(hex: "3080C0").opacity(0.3), lineWidth: 1)
+                        .foregroundStyle(Color(hex: "0088FF"))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color.white.opacity(0.95), Color(hex: "C8F0FF")],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
                         )
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(Color(hex: "00B0FF").opacity(0.6), lineWidth: 1.5)
+                        )
+                        .shadow(color: Color(hex: "00C8FF").opacity(0.25), radius: 4, y: 2)
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
             .background(
                 ZStack {
-                    // Chrome toolbar gradient
-                    LinearGradient(
-                        colors: [
-                            Color(hex: "D8D4E8"),
-                            Color(hex: "C4C0D4"),
-                            Color(hex: "CCC8DC"),
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    // Top highlight line
+                    BrushedMetal(baseColor: Color(hex: "B0E0F8"), intensity: 0.32)
                     VStack {
                         Rectangle()
-                            .fill(Color.white.opacity(0.4))
+                            .fill(Color.white.opacity(0.55))
                             .frame(height: 1)
                         Spacer()
                         Rectangle()
-                            .fill(Color.black.opacity(0.1))
+                            .fill(Color(hex: "0080C0").opacity(0.18))
                             .frame(height: 1)
                     }
                 }
@@ -116,10 +108,16 @@ struct TranscriptView: View {
                 )
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(Color(hex: "B8B4C8"))
+                .background(
+                    LinearGradient(
+                        colors: [Color(hex: "D8F4FF"), Color(hex: "B8E8FF")],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
 
                 Rectangle()
-                    .fill(Color.black.opacity(0.15))
+                    .fill(Color(hex: "0080C0").opacity(0.2))
                     .frame(height: 1)
             }
 
@@ -137,30 +135,57 @@ struct TranscriptView: View {
             // Playback bar
             if memo.status == .completed {
                 Rectangle()
-                    .fill(Color.black.opacity(0.15))
+                    .fill(Color(hex: "0080C0").opacity(0.22))
                     .frame(height: 1)
-                PlaybackBar(viewModel: viewModel)
+                PlaybackBar(memo: memo, viewModel: viewModel)
+            }
+            }
+            .background(IridescentBackground())
+
+            if let id = celebrationID {
+                TranscriptCelebrationOverlay(runID: id) {
+                    celebrationID = nil
+                }
+                .id(id)
+                .transition(.opacity)
             }
         }
-        .background(IridescentBackground())
         .task(id: memo.id) {
             await viewModel.loadAudio(from: memo)
+        }
+        .onChange(of: memo.status) { oldStatus, newStatus in
+            if case .transcribing = oldStatus, case .completed = newStatus {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    celebrationID = UUID()
+                }
+            }
         }
         .overlay(alignment: .top) {
             if copiedToast {
                 Text("copied to clipboard")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 5)
-                    .background(Color(hex: "3080C0"))
+                    .font(TimbreFont.fontBold(size: 14))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color(hex: "00B0FF"), Color(hex: "0080E0")],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                    )
                     .foregroundStyle(.white)
+                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.45), lineWidth: 1))
                     .transition(.move(edge: .top).combined(with: .opacity))
-                    .padding(.top, 40)
+                    .padding(.top, 48)
             }
         }
         .sheet(item: $renamingSpeaker) { speaker in
             SpeakerRenameSheet(speaker: speaker) { newName in
                 viewModel.renameSpeaker(speaker, to: newName)
+                try? modelContext.save()
             }
         }
     }
@@ -169,17 +194,35 @@ struct TranscriptView: View {
 
     private var readyToTranscribeView: some View {
         VStack(spacing: 14) {
-            Image(systemName: "mic.fill")
-                .font(.system(size: 40, weight: .thin))
-                .foregroundStyle(Color(hex: "6898B8"))
+            ZStack {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [Color(hex: "00FFFF").opacity(0.35), Color.clear],
+                            center: .center,
+                            startRadius: 8,
+                            endRadius: 48
+                        )
+                    )
+                    .frame(width: 96, height: 96)
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 40, weight: .thin))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Color(hex: "00D8FF"), Color(hex: "0088FF")],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+            }
 
             Text("ready to transcribe")
-                .font(.system(size: 12, weight: .bold, design: .monospaced))
-                .foregroundStyle(Color(hex: "2A4A70"))
+                .font(TimbreFont.fontBold(size: 18))
+                .foregroundStyle(Color(hex: "044060"))
 
             Text("\(memo.formattedDuration) // \(selectedModel.displayName)")
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(Color(hex: "6898B8"))
+                .font(Theme.bodyFont)
+                .foregroundStyle(Color(hex: "0088C8"))
 
             Button {
                 Task {
@@ -189,31 +232,22 @@ struct TranscriptView: View {
                 }
             } label: {
                 Text("[ start transcription ]")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .font(TimbreFont.fontBold(size: 16))
                     .foregroundStyle(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 7)
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 12)
                     .background(
-                        LinearGradient(
-                            colors: [Color(hex: "4890D0"), Color(hex: "2868A8")],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color(hex: "00C8FF"), Color(hex: "0080E0")],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
                     )
-                    .overlay(
-                        ZStack {
-                            VStack {
-                                Rectangle().fill(Color.white.opacity(0.3)).frame(height: 1)
-                                Spacer()
-                                Rectangle().fill(Color.black.opacity(0.2)).frame(height: 1)
-                            }
-                            HStack {
-                                Rectangle().fill(Color.white.opacity(0.15)).frame(width: 1)
-                                Spacer()
-                                Rectangle().fill(Color.black.opacity(0.15)).frame(width: 1)
-                            }
-                        }
-                    )
+                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.45), lineWidth: 1.5))
+                    .shadow(color: Color(hex: "00FFFF").opacity(0.4), radius: 8, y: 3)
             }
             .buttonStyle(.plain)
         }
@@ -226,11 +260,11 @@ struct TranscriptView: View {
         VStack(spacing: 14) {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Rectangle().fill(Color(hex: "3A3650"))
+                    Rectangle().fill(Color(hex: "044060"))
                     Rectangle()
                         .fill(
                             LinearGradient(
-                                colors: [Color(hex: "4890D0"), Color(hex: "3080C0")],
+                                colors: [Color(hex: "00FF88"), Color(hex: "00C8FF")],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
@@ -240,29 +274,30 @@ struct TranscriptView: View {
                 .overlay(
                     ZStack {
                         VStack {
-                            Rectangle().fill(Color.white.opacity(0.2)).frame(height: 1)
+                            Rectangle().fill(Color.white.opacity(0.35)).frame(height: 1)
                             Spacer()
-                            Rectangle().fill(Color.black.opacity(0.3)).frame(height: 1)
+                            Rectangle().fill(Color.black.opacity(0.25)).frame(height: 1)
                         }
                     }
                 )
+                .clipShape(RoundedRectangle(cornerRadius: 2))
             }
-            .frame(width: 280, height: 12)
+            .frame(width: 320, height: 16)
 
             Text("transcribing\u{2026}")
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                .foregroundStyle(Color(hex: "2A4A70"))
+                .font(TimbreFont.fontBold(size: 17))
+                .foregroundStyle(Color(hex: "044060"))
 
             Text("\(Int(memo.transcriptionProgress * 100))%")
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(Color(hex: "3080C0"))
+                .font(TimbreFont.fontBold(size: 16))
+                .foregroundStyle(Color(hex: "0088FF"))
 
             Button("[ cancel ]") {
                 Task { await viewModel.cancelTranscription(memo: memo) }
             }
-            .font(.system(size: 10, design: .monospaced))
+            .font(Theme.bodyFont)
             .buttonStyle(.plain)
-            .foregroundStyle(Color(hex: "6898B8"))
+            .foregroundStyle(Color(hex: "0088C8"))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -285,8 +320,9 @@ struct TranscriptView: View {
                                 block: block,
                                 isActive: isBlockActive(block),
                                 onTap: {
-                                    viewModel.seek(to: block.startTime)
-                                    viewModel.play()
+                                    Task {
+                                        await viewModel.jumpToAndPlay(memo: memo, time: block.startTime)
+                                    }
                                 },
                                 onRenameSpeaker: {
                                     if let speaker = block.speaker {
@@ -298,7 +334,7 @@ struct TranscriptView: View {
 
                             if index < merged.count - 1 {
                                 Rectangle()
-                                    .fill(Color(hex: "B0ACC4").opacity(0.5))
+                                    .fill(Color(hex: "40C8FF").opacity(0.35))
                                     .frame(height: 1)
                                     .padding(.horizontal, 12)
                             }
@@ -331,7 +367,7 @@ struct TranscriptView: View {
         guard let transcript = memo.transcript else { return }
         let merged = mergeSegments(transcript.sortedSegments)
         let text = merged.map { block in
-            let name = block.speaker?.effectiveName ?? "Unknown"
+            let name = (block.speaker?.effectiveName ?? "unknown").lowercased()
             return "\(name) (\(TimeFormatter.format(block.startTime)))\n\(block.text)"
         }.joined(separator: "\n\n")
 
@@ -386,17 +422,23 @@ struct TranscriptView: View {
         VStack(spacing: 14) {
             Image(systemName: "xmark.circle")
                 .font(.system(size: 40, weight: .thin))
-                .foregroundStyle(Color(hex: "A85858"))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [Color(hex: "FF4080"), Color(hex: "FF8080")],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
 
             Text("transcription failed")
-                .font(.system(size: 12, weight: .bold, design: .monospaced))
-                .foregroundStyle(Color(hex: "2A4A70"))
+                .font(TimbreFont.fontBold(size: 18))
+                .foregroundStyle(Color(hex: "044060"))
 
             Text(error)
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(Color(hex: "6898B8"))
+                .font(Theme.bodyFont)
+                .foregroundStyle(Color(hex: "0088C8"))
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 360)
+                .frame(maxWidth: 400)
 
             Button("[ retry ]") {
                 Task {
@@ -405,12 +447,22 @@ struct TranscriptView: View {
                     )
                 }
             }
-            .font(.system(size: 11, weight: .bold, design: .monospaced))
+            .font(TimbreFont.fontBold(size: 16))
             .buttonStyle(.plain)
             .foregroundStyle(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 7)
-            .background(Color(hex: "3080C0"))
+            .padding(.horizontal, 22)
+            .padding(.vertical, 12)
+            .background(
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(hex: "00B0FF"), Color(hex: "0080DD")],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+            )
+            .overlay(Capsule().strokeBorder(Color.white.opacity(0.4), lineWidth: 1.5))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -436,23 +488,38 @@ struct MergedSegmentRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             // Active indicator bar
-            Rectangle()
-                .fill(isActive ? Color(hex: "3080C0") : Color.clear)
-                .frame(width: 3)
+            Group {
+                if isActive {
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(hex: "00FFFF"), Color(hex: "0088FF")],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                } else {
+                    Rectangle().fill(Color.clear)
+                }
+            }
+            .frame(width: 3)
 
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 10) {
                     SpeakerBadge(speaker: block.speaker)
-                        .onTapGesture { onRenameSpeaker() }
+                        .highPriorityGesture(
+                            TapGesture().onEnded { onRenameSpeaker() }
+                        )
 
                     Text(TimeFormatter.format(block.startTime))
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundStyle(Color(hex: "6898B8"))
+                        .font(Theme.smallMetaFont)
+                        .fontWeight(.medium)
+                        .foregroundStyle(Color(hex: "0088C8"))
                 }
 
                 Text(block.text)
-                    .font(.system(size: 12))
-                    .foregroundStyle(Color(hex: "1A2838"))
+                    .font(Theme.bodyFont)
+                    .foregroundStyle(Color(hex: "043050"))
                     .textSelection(.enabled)
                     .lineLimit(nil)
                     .fixedSize(horizontal: false, vertical: true)
@@ -462,7 +529,7 @@ struct MergedSegmentRow: View {
         }
         .background(
             isActive
-                ? Color(hex: "3080C0").opacity(0.08)
+                ? Color(hex: "00C8FF").opacity(0.12)
                 : Color.clear
         )
         .contentShape(Rectangle())
@@ -482,41 +549,59 @@ struct SpeakerRenameSheet: View {
     var body: some View {
         VStack(spacing: 12) {
             Text("rename speaker")
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                .foregroundStyle(Color(hex: "2A4A70"))
+                .font(TimbreFont.fontBold(size: 17))
+                .foregroundStyle(Color(hex: "044060"))
 
             Text("applies to all segments from this speaker")
-                .font(.system(size: 9, design: .monospaced))
-                .foregroundStyle(Color(hex: "6898B8"))
+                .font(Theme.captionFont)
+                .foregroundStyle(Color(hex: "0088C8"))
 
-            TextField("Name", text: $text)
+            TextField("name", text: $text)
                 .textFieldStyle(.squareBorder)
-                .font(.system(size: 12))
+                .font(Theme.bodyFont)
                 .focused($isFocused)
                 .onSubmit { save() }
 
             HStack {
                 Button("[ cancel ]") { dismiss() }
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(Theme.bodyFont)
                     .buttonStyle(.plain)
-                    .foregroundStyle(Color(hex: "6898B8"))
+                    .foregroundStyle(Color(hex: "0088C8"))
                     .keyboardShortcut(.cancelAction)
                 Spacer()
                 Button("[ save ]") { save() }
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .font(TimbreFont.fontBold(size: 15))
                     .buttonStyle(.plain)
                     .foregroundStyle(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 4)
-                    .background(Color(hex: "3080C0"))
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .background(
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color(hex: "00B8FF"), Color(hex: "0080E0")],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                    )
+                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.45), lineWidth: 1.5))
                     .keyboardShortcut(.defaultAction)
                     .disabled(text.trimmingCharacters(
                         in: CharacterSet.whitespacesAndNewlines
                     ).isEmpty)
             }
         }
-        .padding(20)
-        .frame(width: 300)
+        .padding(24)
+        .frame(minWidth: 380)
+        .background(
+            LinearGradient(
+                colors: [Color(hex: "F0FCFF"), Color(hex: "D0E8FF")],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
+        .textCase(.lowercase)
         .onAppear {
             text = speaker.displayName ?? speaker.label
             isFocused = true

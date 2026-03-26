@@ -68,7 +68,7 @@ struct LibraryView: View {
                         Image(systemName: "waveform")
                             .font(.system(size: 32, weight: .thin))
                             .foregroundStyle(Theme.chromeMid)
-                        Text("NO MEMOS")
+                        Text("no memos")
                             .font(Theme.titleFont)
                             .foregroundStyle(Theme.textSecondary)
                         Text("import a voice memo to get started")
@@ -203,24 +203,52 @@ struct RetroStatusBadge: View {
     let status: MemoStatus
 
     var body: some View {
-        Text(status.label.lowercased())
-            .font(.system(size: 9, weight: .bold, design: .monospaced))
-            .padding(.horizontal, 5)
-            .padding(.vertical, 1)
-            .background(badgeColor.opacity(0.2))
-            .foregroundStyle(badgeColor)
-            .overlay(
-                Rectangle()
-                    .strokeBorder(badgeColor.opacity(0.4), lineWidth: 1)
+        Text(status.label)
+            .font(Theme.badgeFont)
+            .foregroundStyle(Color.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(
+                ZStack {
+                    Capsule()
+                        .fill(
+                            RadialGradient(
+                                colors: [badgeColor, badgeColor.opacity(0.75)],
+                                center: .topLeading,
+                                startRadius: 0,
+                                endRadius: 40
+                            )
+                        )
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.45), Color.clear],
+                                startPoint: .top,
+                                endPoint: .center
+                            )
+                        )
+                }
             )
+            .overlay(
+                Capsule()
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.75), badgeColor.opacity(0.4)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 1.5
+                    )
+            )
+            .shadow(color: badgeColor.opacity(0.35), radius: 3, y: 1)
     }
 
     private var badgeColor: Color {
         switch status {
-        case .imported: Theme.chromeMid
-        case .transcribing: Theme.accent
-        case .completed: Color(hex: "6A8868")
-        case .failed: Color(hex: "A85858")
+        case .imported: Color(hex: "0088C8")
+        case .transcribing: Color(hex: "00B0FF")
+        case .completed: Color(hex: "00E070")
+        case .failed: Color(hex: "FF4088")
         }
     }
 }
@@ -241,7 +269,7 @@ struct RetroRenameSheet: View {
                 .font(Theme.titleFont)
                 .foregroundStyle(Theme.textPrimary)
 
-            TextField("Name", text: $text)
+            TextField("name", text: $text)
                 .textFieldStyle(.squareBorder)
                 .font(Theme.bodyFont)
                 .focused($isFocused)
@@ -258,18 +286,39 @@ struct RetroRenameSheet: View {
                     .font(Theme.titleFont)
                     .buttonStyle(.plain)
                     .foregroundStyle(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 4)
-                    .background(Theme.accent)
-                    .retroBevel()
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .background(
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color(hex: "00B8FF"), Color(hex: "0080E0")],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                    )
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(Color.white.opacity(0.45), lineWidth: 1.5)
+                    )
+                    .shadow(color: Color(hex: "00C8FF").opacity(0.35), radius: 4, y: 2)
                     .keyboardShortcut(.defaultAction)
                     .disabled(text.trimmingCharacters(
                         in: CharacterSet.whitespacesAndNewlines
                     ).isEmpty)
             }
         }
-        .padding(20)
-        .frame(width: 300)
+        .padding(24)
+        .frame(minWidth: 360)
+        .background(
+            LinearGradient(
+                colors: [Color(hex: "F0FCFF"), Color(hex: "D0E8FF")],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
+        .textCase(.lowercase)
         .onAppear {
             text = currentName
             isFocused = true

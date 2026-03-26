@@ -1,63 +1,60 @@
 import SwiftUI
 
 struct PlaybackBar: View {
+    let memo: Memo
     @Bindable var viewModel: TranscriptViewModel
 
     var body: some View {
         VStack(spacing: 0) {
-            // Top bevel
-            Rectangle().fill(Color.white.opacity(0.3)).frame(height: 1)
+            Rectangle().fill(Color.white.opacity(0.5)).frame(height: 1)
 
-            HStack(spacing: 6) {
-                // Transport bubble buttons
-                BubbleButton(icon: "backward.end.fill", size: 28, color: Color(hex: "7098C0")) {
-                    viewModel.seek(to: max(0, viewModel.currentTime - 10))
+            HStack(spacing: 10) {
+                BubbleButton(icon: "backward.end.fill", size: 34, color: Color(hex: "00A8FF")) {
+                    Task { await viewModel.skipBy(memo: memo, delta: -10) }
                 }
 
                 BubbleButton(
                     icon: viewModel.isPlaying ? "pause.fill" : "play.fill",
-                    size: 34,
-                    color: Color(hex: "5888D0")
+                    size: 40,
+                    color: Color(hex: "0088FF")
                 ) {
-                    viewModel.togglePlayback()
+                    Task { await viewModel.togglePlayback(memo: memo) }
                 }
 
-                BubbleButton(icon: "forward.end.fill", size: 28, color: Color(hex: "7098C0")) {
-                    viewModel.seek(to: min(viewModel.duration, viewModel.currentTime + 10))
+                BubbleButton(icon: "forward.end.fill", size: 34, color: Color(hex: "00A8FF")) {
+                    Task { await viewModel.skipBy(memo: memo, delta: 10) }
                 }
 
-                // Time display
                 Text(TimeFormatter.format(viewModel.currentTime))
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(Color(hex: "3868A0"))
-                    .frame(width: 50, alignment: .trailing)
+                    .font(TimbreFont.fontBold(size: 15))
+                    .foregroundStyle(Color(hex: "044060"))
+                    .frame(width: 58, alignment: .trailing)
 
-                // Seek bar — chrome inset
                 ChromeInset {
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
-                            Color(hex: "2A4060")
+                            Color(hex: "044060")
 
-                            // Green progress (like classic QuickTime!)
-                            RoundedRectangle(cornerRadius: 2)
+                            Capsule()
                                 .fill(
                                     LinearGradient(
-                                        colors: [Color(hex: "60C060"), Color(hex: "40A840")],
+                                        colors: [Color(hex: "00FF88"), Color(hex: "00D070")],
                                         startPoint: .top,
                                         endPoint: .bottom
                                     )
                                 )
                                 .frame(
-                                    width: geo.size.width * (viewModel.duration > 0
-                                        ? viewModel.currentTime / viewModel.duration : 0)
+                                    width: max(8, geo.size.width * (viewModel.duration > 0
+                                        ? viewModel.currentTime / viewModel.duration : 0))
                                 )
                                 .overlay(
                                     VStack {
-                                        Rectangle().fill(Color.white.opacity(0.3)).frame(height: 1)
+                                        Capsule().fill(Color.white.opacity(0.45)).frame(height: 2)
                                         Spacer()
                                     }
                                 )
                         }
+                        .clipShape(Capsule())
                         .gesture(
                             DragGesture(minimumDistance: 0)
                                 .onChanged { value in
@@ -67,16 +64,16 @@ struct PlaybackBar: View {
                         )
                     }
                 }
-                .frame(height: 10)
+                .frame(height: 16)
 
                 Text(TimeFormatter.format(viewModel.duration))
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(Color(hex: "7898B0"))
-                    .frame(width: 50)
+                    .font(Theme.smallMetaFont)
+                    .foregroundStyle(Color(hex: "0088C8"))
+                    .frame(width: 58)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(BrushedMetal(baseColor: Color(hex: "B8BCC8"), intensity: 0.3))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(BrushedMetal(baseColor: Color(hex: "A8D8F8"), intensity: 0.34))
         }
     }
 }

@@ -1,53 +1,47 @@
 import SwiftUI
 
 enum Theme {
-    // MARK: - Core Palette (Y2K chrome / dark accents / iridescent)
+    // MARK: - Frutiger Aero / vintage Mac player palette (vibrant blue, green, chrome, white)
 
-    // Chrome shell
-    static let chromeDark = Color(hex: "3A3A4A")
-    static let chromeMid = Color(hex: "8888A0")
-    static let chromeLight = Color(hex: "B8B8C8")
-    static let chromeHighlight = Color(hex: "D8D8E8")
+    static let chromeDark = Color(hex: "3A5A78")
+    static let chromeMid = Color(hex: "6CA0D0")
+    static let chromeLight = Color(hex: "B0E0FF")
+    static let chromeHighlight = Color(hex: "F0FCFF")
 
-    // Backgrounds
-    static let windowBg = Color(hex: "C8C4D8")
-    static let sidebarBg = Color(hex: "B0ACC4")
-    static let transcriptBg = Color(hex: "D4D0E0")
+    static let windowBg = Color(hex: "C8E8FF")
+    static let sidebarBg = Color(hex: "90D0F0")
+    static let transcriptBg = Color(hex: "E0F8FF")
 
-    // Text
-    static let textPrimary = Color(hex: "1A1828")
-    static let textSecondary = Color(hex: "5A5670")
-    static let textDim = Color(hex: "8884A0")
+    static let textPrimary = Color(hex: "044060")
+    static let textSecondary = Color(hex: "0870B0")
+    static let textDim = Color(hex: "2090C8")
 
-    // Accent
-    static let accent = Color(hex: "6A5ACD")  // Slate blue
-    static let accentLight = Color(hex: "9890E0")
+    static let accent = Color(hex: "0088FF")
+    static let accentLight = Color(hex: "40D0FF")
+    static let limePop = Color(hex: "00F088")
+    static let limeDeep = Color(hex: "00C060")
 
-    // Active/highlight (iridescent-inspired)
-    static let iridescentPink = Color(hex: "E8B0D0")
-    static let iridescentBlue = Color(hex: "A0C0E8")
-    static let iridescentLilac = Color(hex: "C8B8E8")
-
-    // MARK: - Speaker Colors (cohesive cool-tone palette, NO orange/cyan)
+    static let aquaBlue = Color(hex: "00B4FF")
+    static let iceWhite = Color(hex: "FAFFFF")
 
     static let speakerPalette: [String] = [
-        "7B68C8", // Deep lavender
-        "C878A8", // Dusty rose
-        "6888B8", // Steel blue
-        "9878B8", // Plum
-        "A8A0D0", // Periwinkle
-        "B868A0", // Mauve
-        "7898C0", // Slate
-        "8878A8", // Violet grey
+        "0080FF",
+        "00D0A0",
+        "20C0FF",
+        "00E868",
+        "4080FF",
+        "00FFC8",
+        "0090E0",
+        "60FF90",
     ]
 
     // MARK: - Gradients
 
     static let chromeGradient = LinearGradient(
         colors: [
-            Color(hex: "D0CCE0"),
-            Color(hex: "B8B4C8"),
-            Color(hex: "C4C0D4"),
+            Color(hex: "E8F8FF"),
+            Color(hex: "B8E0F8"),
+            Color(hex: "D0F0FF"),
         ],
         startPoint: .top,
         endPoint: .bottom
@@ -55,11 +49,11 @@ enum Theme {
 
     static let iridescent = LinearGradient(
         colors: [
-            Color(hex: "D8D0F0"),
-            Color(hex: "C8D8F0"),
-            Color(hex: "E0D0E8"),
-            Color(hex: "D0D8F0"),
-            Color(hex: "D8C8E8"),
+            Color(hex: "E0F8FF"),
+            Color(hex: "C8F0FF"),
+            Color(hex: "D8FFF0"),
+            Color(hex: "B8E8FF"),
+            Color(hex: "E0FFFF"),
         ],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
@@ -67,9 +61,9 @@ enum Theme {
 
     static let iridescentSubtle = LinearGradient(
         colors: [
-            Color(hex: "E0DCF0"),
-            Color(hex: "D8E0F0"),
-            Color(hex: "E8DCE8"),
+            Color(hex: "F0FCFF"),
+            Color(hex: "D8F4FF"),
+            Color(hex: "E8FFF8"),
         ],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
@@ -77,28 +71,37 @@ enum Theme {
 
     static let darkChrome = LinearGradient(
         colors: [
-            Color(hex: "4A4660"),
-            Color(hex: "3A3650"),
-            Color(hex: "2E2A40"),
+            Color(hex: "5080A8"),
+            Color(hex: "306890"),
+            Color(hex: "184868"),
         ],
         startPoint: .top,
         endPoint: .bottom
     )
 
-    // MARK: - Fonts (monospace for that terminal/Winamp feel)
+    static let playerFaceGradient = LinearGradient(
+        colors: [
+            Color(hex: "F8FFFF"),
+            Color(hex: "D0F0FF"),
+            Color(hex: "E8FFF8"),
+            Color(hex: "C8E8FF"),
+        ],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
 
-    static let titleFont = Font.system(size: 12, weight: .bold, design: .monospaced)
-    static let bodyFont = Font.system(size: 12, design: .default)
-    static let captionFont = Font.system(size: 10, design: .monospaced)
-    static let badgeFont = Font.system(size: 10, weight: .bold, design: .monospaced)
+    // MARK: - Fonts (DotGothic16 — register in TimbreApp)
 
-    // MARK: - Geometry (sharp, not soft)
+    static let largeTitleFont = TimbreFont.fontBold(size: 20)
+    static let titleFont = TimbreFont.fontBold(size: 17)
+    static let bodyFont = TimbreFont.font(size: 15)
+    static let captionFont = TimbreFont.font(size: 13)
+    static let badgeFont = TimbreFont.font(size: 13)
+    static let smallMetaFont = TimbreFont.font(size: 12)
 
-    static let cornerRadius: CGFloat = 2
+    static let cornerRadius: CGFloat = 10
     static let borderWidth: CGFloat = 1
 }
-
-// MARK: - Retro Border Modifier (1px inset bevel like classic UI)
 
 struct RetroBevel: ViewModifier {
     func body(content: Content) -> some View {
@@ -108,9 +111,9 @@ struct RetroBevel: ViewModifier {
                     .strokeBorder(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.5),
+                                Color.white.opacity(0.65),
                                 Color.clear,
-                                Color.black.opacity(0.2),
+                                Color(hex: "0060A0").opacity(0.25),
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -129,9 +132,9 @@ struct RetroInset: ViewModifier {
                     .strokeBorder(
                         LinearGradient(
                             colors: [
-                                Color.black.opacity(0.25),
+                                Color(hex: "004070").opacity(0.35),
                                 Color.clear,
-                                Color.white.opacity(0.4),
+                                Color.white.opacity(0.5),
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing

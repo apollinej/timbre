@@ -39,19 +39,19 @@ enum WhisperModel: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .tinyEn: "Tiny (English)"
-        case .baseEn: "Base (English)"
-        case .smallEn: "Small (English)"
-        case .largeV3: "Large v3 (Multilingual)"
+        case .tinyEn: "tiny (english)"
+        case .baseEn: "base (english)"
+        case .smallEn: "small (english)"
+        case .largeV3: "large v3 (multilingual)"
         }
     }
 
     var description: String {
         switch self {
-        case .tinyEn: "Fastest, lowest accuracy. ~75 MB"
-        case .baseEn: "Fast, good for quick drafts. ~150 MB"
-        case .smallEn: "Balanced speed and accuracy. ~500 MB"
-        case .largeV3: "Best accuracy, multilingual. ~3 GB"
+        case .tinyEn: "fastest, lowest accuracy. ~75 mb"
+        case .baseEn: "fast, good for quick drafts. ~150 mb"
+        case .smallEn: "balanced speed and accuracy. ~500 mb"
+        case .largeV3: "best accuracy, multilingual. ~3 gb"
         }
     }
 

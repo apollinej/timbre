@@ -1,32 +1,29 @@
 import SwiftUI
 
-// MARK: - Brushed Metal Texture (drawn procedurally like classic Mac OS X)
+// MARK: - Brushed metal (cool chrome with optional blue cast)
 
 struct BrushedMetal: View {
-    var baseColor: Color = Color(hex: "B8BCC8")
-    var intensity: Double = 0.4
+    var baseColor: Color = Color(hex: "B0D0E8")
+    var intensity: Double = 0.42
 
     var body: some View {
         Canvas { context, size in
-            // Base fill
             context.fill(
                 Path(CGRect(origin: .zero, size: size)),
                 with: .color(baseColor)
             )
 
-            // Horizontal brush lines — the classic brushed aluminum look
             let lineCount = Int(size.height)
             for y in 0..<lineCount {
-                // Pseudo-random using sine for deterministic "randomness"
-                let seed = Double(y) * 0.7
+                let seed = Double(y) * 0.71
                 let noise = sin(seed * 12.9898 + 78.233)
                 let frac = (noise * 43758.5453).truncatingRemainder(dividingBy: 1.0)
                 let alpha = abs(frac) * intensity
 
                 let isLight = frac > 0
                 let lineColor = isLight
-                    ? Color.white.opacity(alpha * 0.6)
-                    : Color.black.opacity(alpha * 0.3)
+                    ? Color.white.opacity(alpha * 0.75)
+                    : Color(hex: "0060A0").opacity(alpha * 0.22)
 
                 let rect = CGRect(x: 0, y: CGFloat(y), width: size.width, height: 1)
                 context.fill(Path(rect), with: .color(lineColor))
@@ -35,7 +32,7 @@ struct BrushedMetal: View {
     }
 }
 
-// MARK: - Chrome Window Shell
+// MARK: - Chrome window shell (vintage QuickTime / brushed Aqua)
 
 struct ChromeWindow<Content: View>: View {
     let content: Content
@@ -46,48 +43,77 @@ struct ChromeWindow<Content: View>: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Custom title bar with brushed metal
-            ZStack {
-                BrushedMetal(baseColor: Color(hex: "C0C4D0"), intensity: 0.35)
+            ZStack(alignment: .leading) {
+                BrushedMetal(baseColor: Color(hex: "A8D0F0"), intensity: 0.38)
 
-                // Top highlight
                 VStack {
-                    Rectangle().fill(Color.white.opacity(0.5)).frame(height: 1)
+                    Rectangle().fill(Color.white.opacity(0.55)).frame(height: 1)
                     Spacer()
-                    Rectangle().fill(Color.black.opacity(0.15)).frame(height: 1)
+                    Rectangle().fill(Color(hex: "2068A0").opacity(0.2)).frame(height: 1)
                 }
 
-                // Title
-                Text("timbre")
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Color(hex: "4A5060"))
+                HStack(spacing: 10) {
+                    AquaTrafficLights(size: 11, spacing: 5)
+                        .padding(.leading, 10)
+
+                    Spacer()
+
+                    HStack(spacing: 6) {
+                        PixelStar(color: Color(hex: "00E8FF"))
+                        Text("timbre")
+                            .font(TimbreFont.fontBold(size: 16))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [Color(hex: "004878"), Color(hex: "0088D0")],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .shadow(color: .white.opacity(0.6), radius: 0, y: 1)
+                        PixelStar(color: Color(hex: "00FF88"))
+                    }
+
+                    Spacer()
+
+                    // Balance traffic lights
+                    Color.clear.frame(width: 52, height: 1)
+                }
             }
-            .frame(height: 32)
+            .frame(height: 38)
 
-            // Outer bevel
-            Rectangle().fill(Color.black.opacity(0.2)).frame(height: 1)
+            Rectangle().fill(Color(hex: "004060").opacity(0.25)).frame(height: 1)
 
-            // Main content
-            content
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            ZStack(alignment: .bottomTrailing) {
+                content
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // Bottom chrome bar
-            Rectangle().fill(Color.white.opacity(0.3)).frame(height: 1)
+                ChromeCornerGrip()
+                    .offset(x: -2, y: -2)
+                    .allowsHitTesting(false)
+            }
+
+            Rectangle().fill(Color.white.opacity(0.45)).frame(height: 1)
             ZStack {
-                BrushedMetal(baseColor: Color(hex: "B8BCC8"), intensity: 0.3)
+                BrushedMetal(baseColor: Color(hex: "98C8E8"), intensity: 0.32)
             }
-            .frame(height: 6)
+            .frame(height: 7)
         }
-        .background(Color(hex: "A8ACB8"))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .background(
+            LinearGradient(
+                colors: [Color(hex: "88B8E0"), Color(hex: "70A8D8")],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: Theme.cornerRadius)
                 .strokeBorder(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.4),
-                            Color(hex: "8890A0"),
-                            Color(hex: "606878"),
+                            Color.white.opacity(0.75),
+                            Color(hex: "40C0FF").opacity(0.6),
+                            Color(hex: "2060A0"),
                         ],
                         startPoint: .top,
                         endPoint: .bottom
@@ -96,40 +122,39 @@ struct ChromeWindow<Content: View>: View {
                 )
         )
         .padding(2)
+        .textCase(.lowercase)
     }
 }
 
-// MARK: - Embossed Button Style (3D raised look)
+// MARK: - Embossed button (glossy chrome)
 
 struct EmbossedButtonStyle: ButtonStyle {
     var isSmall: Bool = false
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: isSmall ? 10 : 12, weight: .medium))
-            .padding(.horizontal, isSmall ? 8 : 14)
-            .padding(.vertical, isSmall ? 4 : 6)
+            .font(TimbreFont.font(size: isSmall ? 13 : 15))
+            .padding(.horizontal, isSmall ? 12 : 18)
+            .padding(.vertical, isSmall ? 6 : 8)
             .background(
                 ZStack {
-                    // Button face
-                    RoundedRectangle(cornerRadius: 4)
+                    Capsule()
                         .fill(
                             LinearGradient(
                                 colors: configuration.isPressed
-                                    ? [Color(hex: "A0A4B0"), Color(hex: "B0B4C0")]
-                                    : [Color(hex: "D0D4E0"), Color(hex: "B8BCC8")],
+                                    ? [Color(hex: "80C8F0"), Color(hex: "60B0E0")]
+                                    : [Color(hex: "F0FCFF"), Color(hex: "A0D8F8")],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
                         )
 
-                    // Bevel highlights
-                    RoundedRectangle(cornerRadius: 4)
+                    Capsule()
                         .strokeBorder(
                             LinearGradient(
                                 colors: configuration.isPressed
-                                    ? [Color.black.opacity(0.15), Color.white.opacity(0.2)]
-                                    : [Color.white.opacity(0.6), Color.black.opacity(0.15)],
+                                    ? [Color(hex: "006090").opacity(0.35), Color.white.opacity(0.25)]
+                                    : [Color.white.opacity(0.95), Color(hex: "0080C0").opacity(0.35)],
                                 startPoint: .top,
                                 endPoint: .bottom
                             ),
@@ -137,57 +162,54 @@ struct EmbossedButtonStyle: ButtonStyle {
                         )
                 }
             )
-            .foregroundStyle(Color(hex: "3A4050"))
-            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .foregroundStyle(Color(hex: "044060"))
+            .shadow(color: Color(hex: "00C8FF").opacity(configuration.isPressed ? 0 : 0.25), radius: 4, y: 1)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
     }
 }
 
-// MARK: - Bubble Icon Button (round, glossy, 3D)
+// MARK: - Bubble transport buttons (glossy jelly)
 
 struct BubbleButton: View {
     let icon: String
     let size: CGFloat
-    var color: Color = Color(hex: "78A8E0")
+    var color: Color = Color(hex: "0088FF")
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             ZStack {
-                // Shadow
                 Circle()
-                    .fill(Color.black.opacity(0.15))
+                    .fill(Color(hex: "004070").opacity(0.2))
                     .frame(width: size, height: size)
-                    .offset(y: 1)
+                    .offset(y: 1.5)
 
-                // Base
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [color.opacity(0.9), color],
-                            center: .center,
+                            colors: [Color.white.opacity(0.95), color, Color(hex: "0060C0")],
+                            center: .topLeading,
                             startRadius: 0,
-                            endRadius: size / 2
+                            endRadius: size * 0.85
                         )
                     )
                     .frame(width: size, height: size)
 
-                // Glossy highlight (top shine)
                 Ellipse()
                     .fill(
                         LinearGradient(
-                            colors: [Color.white.opacity(0.7), Color.clear],
+                            colors: [Color.white.opacity(0.75), Color.clear],
                             startPoint: .top,
                             endPoint: .center
                         )
                     )
-                    .frame(width: size * 0.7, height: size * 0.45)
-                    .offset(y: -size * 0.12)
+                    .frame(width: size * 0.72, height: size * 0.42)
+                    .offset(y: -size * 0.14)
 
-                // Inner border
                 Circle()
                     .strokeBorder(
                         LinearGradient(
-                            colors: [Color.white.opacity(0.4), color.opacity(0.3)],
+                            colors: [Color.white.opacity(0.9), color.opacity(0.4)],
                             startPoint: .top,
                             endPoint: .bottom
                         ),
@@ -195,18 +217,17 @@ struct BubbleButton: View {
                     )
                     .frame(width: size, height: size)
 
-                // Icon
                 Image(systemName: icon)
-                    .font(.system(size: size * 0.4, weight: .bold))
+                    .font(.system(size: size * 0.38, weight: .bold))
                     .foregroundStyle(.white)
-                    .shadow(color: color.opacity(0.5), radius: 1, y: 1)
+                    .shadow(color: Color(hex: "00FFFF").opacity(0.4), radius: 2, y: 0)
             }
         }
         .buttonStyle(.plain)
     }
 }
 
-// MARK: - Chrome Inset Panel (sunken area for content)
+// MARK: - Sunken content well
 
 struct ChromeInset<Content: View>: View {
     let content: Content
@@ -217,16 +238,16 @@ struct ChromeInset<Content: View>: View {
 
     var body: some View {
         content
-            .clipShape(RoundedRectangle(cornerRadius: 3))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
             .overlay(
-                RoundedRectangle(cornerRadius: 3)
+                RoundedRectangle(cornerRadius: 4)
                     .strokeBorder(
                         LinearGradient(
                             colors: [
-                                Color.black.opacity(0.25),
-                                Color.black.opacity(0.1),
-                                Color.white.opacity(0.2),
-                                Color.white.opacity(0.3),
+                                Color(hex: "004878").opacity(0.45),
+                                Color(hex: "0080C0").opacity(0.2),
+                                Color.white.opacity(0.55),
+                                Color.white.opacity(0.35),
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing

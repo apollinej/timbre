@@ -14,7 +14,13 @@ let package = Package(
                 .product(name: "WhisperKit", package: "WhisperKit"),
                 .product(name: "SpeakerKit", package: "WhisperKit"),
             ],
-            path: "Sources/Timbre"
+            path: "Sources/Timbre",
+            resources: [.process("Resources")]
+        ),
+        .testTarget(
+            name: "TimbreTests",
+            dependencies: ["Timbre"],
+            path: "Tests/TimbreTests"
         )
     ]
 )

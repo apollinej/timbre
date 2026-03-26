@@ -170,6 +170,33 @@ final class TranscriptViewModel {
         if isPlaying { pause() } else { play() }
     }
 
+    /// Ensures the player exists (waveform load can finish before the user hits play).
+    func ensureAudioReady(memo: Memo) async {
+        if player == nil {
+            await loadAudio(from: memo)
+        }
+    }
+
+    func togglePlayback(memo: Memo) async {
+        await ensureAudioReady(memo: memo)
+        if isPlaying {
+            pause()
+        } else {
+            play()
+        }
+    }
+
+    func skipBy(memo: Memo, delta: TimeInterval) async {
+        await ensureAudioReady(memo: memo)
+        seek(to: max(0, min(duration, currentTime + delta)))
+    }
+
+    func jumpToAndPlay(memo: Memo, time: TimeInterval) async {
+        await ensureAudioReady(memo: memo)
+        seek(to: time)
+        play()
+    }
+
     func seek(to time: TimeInterval) {
         currentTime = time
         player?.currentTime = time

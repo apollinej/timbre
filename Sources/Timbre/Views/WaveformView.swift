@@ -31,15 +31,21 @@ struct WaveformView: View {
 
                     let barProgress = Double(i) / Double(barCount)
                     let color: Color = barProgress <= progress
-                        ? Theme.accent
-                        : Theme.chromeLight
+                        ? Color(hex: "00D8FF")
+                        : Color(hex: "B0E8FF")
 
                     context.fill(Path(rect), with: .color(color))
                 }
             }
         }
-        .frame(height: 40)
-        .background(Theme.chromeDark.opacity(0.08))
+        .frame(height: 52)
+        .background(
+            LinearGradient(
+                colors: [Color(hex: "044060").opacity(0.85), Color(hex: "0868A0")],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
         .retroInset()
     }
 }

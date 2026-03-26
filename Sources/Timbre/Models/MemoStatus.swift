@@ -23,10 +23,10 @@ enum MemoStatus: Codable, Equatable {
 
     var label: String {
         switch self {
-        case .imported: "Ready"
-        case .transcribing: "Transcribing"
-        case .completed: "Done"
-        case .failed: "Failed"
+        case .imported: "ready"
+        case .transcribing: "transcribing"
+        case .completed: "done"
+        case .failed: "failed"
         }
     }
 }

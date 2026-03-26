@@ -8,24 +8,24 @@ struct ContentView: View {
     @State private var selectedMemo: Memo?
     @State private var importer = AudioImporter()
     @State private var isTargeted = false
+    /// Present rename UI from the root so sheets work reliably (not from `LazyVStack` rows).
+    @State private var memoPendingRename: Memo?
+    @State private var folderPendingRename: Folder?
 
     var body: some View {
         HStack(spacing: 0) {
-            // SIDEBAR
             sidebar
-                .frame(width: 220)
+                .frame(width: 280)
 
-            // Chrome bevel divider
             ZStack {
-                Rectangle().fill(Color.black.opacity(0.3))
+                Rectangle().fill(Color(hex: "0068A0").opacity(0.35))
                 HStack(spacing: 0) {
-                    Rectangle().fill(Color.black.opacity(0.2)).frame(width: 1)
-                    Rectangle().fill(Color.white.opacity(0.3)).frame(width: 1)
+                    Rectangle().fill(Color(hex: "004060").opacity(0.35)).frame(width: 1)
+                    Rectangle().fill(Color.white.opacity(0.55)).frame(width: 1)
                 }
             }
             .frame(width: 2)
 
-            // DETAIL
             detail
         }
         .onDrop(of: AudioImporter.supportedTypes, isTargeted: $isTargeted) { providers in
@@ -35,47 +35,59 @@ struct ContentView: View {
         .overlay {
             if isTargeted { ImportDropZone() }
         }
+        .sheet(item: $memoPendingRename) { memo in
+            RetroRenameSheet(title: "rename memo", currentName: memo.title) { newName in
+                memo.title = newName
+                try? modelContext.save()
+            }
+        }
+        .sheet(item: $folderPendingRename) { folder in
+            RetroRenameSheet(title: "rename folder", currentName: folder.name) { newName in
+                folder.name = newName
+                try? modelContext.save()
+            }
+        }
     }
-
-    // MARK: - Sidebar
 
     private var sidebar: some View {
         VStack(spacing: 0) {
-            // Sidebar toolbar
-            HStack(spacing: 8) {
-                BubbleButton(icon: "plus", size: 26, color: Color(hex: "78A8E0")) {
+            HStack(spacing: 10) {
+                BubbleButton(icon: "plus", size: 32, color: Color(hex: "0088FF")) {
                     openImportPanel()
                 }
 
-                BubbleButton(icon: "folder.badge.plus", size: 26, color: Color(hex: "88B8D0")) {
+                BubbleButton(icon: "folder.badge.plus", size: 32, color: Color(hex: "00D8A0")) {
                     createFolder()
                 }
 
                 Spacer()
+
+                PixelStar(color: Color(hex: "00FFFF"))
+                    .padding(.trailing, 4)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(BrushedMetal(baseColor: Color(hex: "7090B8"), intensity: 0.3))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(BrushedMetal(baseColor: Color(hex: "78C8F0"), intensity: 0.36))
             .overlay(
                 VStack {
-                    Rectangle().fill(Color.white.opacity(0.25)).frame(height: 1)
+                    Rectangle().fill(Color.white.opacity(0.4)).frame(height: 1)
                     Spacer()
-                    Rectangle().fill(Color.black.opacity(0.2)).frame(height: 1)
+                    Rectangle().fill(Color(hex: "0080C0").opacity(0.22)).frame(height: 1)
                 }
             )
 
-            // Inset memo list
-            // Memo list — brushed metal with subtle inset
             ChromeInset {
                 ScrollView {
-                    LazyVStack(spacing: 1) {
+                    LazyVStack(spacing: 2) {
                         ForEach(folders.sorted(by: { $0.dateCreated < $1.dateCreated })) { folder in
                             FolderSection(
                                 folder: folder,
                                 memos: memosInFolder(folder),
                                 selectedMemo: $selectedMemo,
                                 allFolders: folders,
-                                modelContext: modelContext
+                                modelContext: modelContext,
+                                onRenameFolder: { folderPendingRename = folder },
+                                renameMemo: { memoPendingRename = $0 }
                             )
                         }
 
@@ -85,60 +97,51 @@ struct ContentView: View {
                                 memo: memo,
                                 isSelected: selectedMemo?.id == memo.id,
                                 folders: folders,
-                                modelContext: modelContext
+                                modelContext: modelContext,
+                                onRename: { memoPendingRename = memo }
                             ) { selectedMemo = memo }
+                            .padding(.leading, 8)
                         }
 
                         if memos.isEmpty {
-                            VStack(spacing: 6) {
+                            VStack(spacing: 8) {
                                 Text("no memos yet")
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .foregroundStyle(Color(hex: "8898A8"))
+                                    .font(Theme.captionFont)
+                                    .foregroundStyle(Color(hex: "0870B0"))
                                 Text("click + to import")
-                                    .font(.system(size: 10, design: .monospaced))
-                                    .foregroundStyle(Color(hex: "A0A8B8"))
+                                    .font(Theme.smallMetaFont)
+                                    .foregroundStyle(Color(hex: "20A0D0"))
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 40)
                         }
                     }
-                    .padding(3)
+                    .padding(4)
                 }
-                .background(BrushedMetal(baseColor: Color(hex: "A8B0C0"), intensity: 0.25))
+                .background(BrushedMetal(baseColor: Color(hex: "B0E0F8"), intensity: 0.28))
             }
-            .padding(6)
+            .padding(8)
         }
-        .background(BrushedMetal(baseColor: Color(hex: "B0B8C8"), intensity: 0.3))
+        .background(BrushedMetal(baseColor: Color(hex: "98D4F8"), intensity: 0.34))
     }
-
-    // MARK: - Detail
 
     private var detail: some View {
         ZStack {
-            // Opaque iridescent silver base
-            LinearGradient(
-                colors: [
-                    Color(hex: "D0D4E0"),
-                    Color(hex: "C4CCE0"),
-                    Color(hex: "D4D0E4"),
-                    Color(hex: "C8D4E8"),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            Theme.playerFaceGradient
 
-            // Subtle shimmer
             LinearGradient(
                 colors: [
+                    Color.white.opacity(0.35),
+                    Color.clear,
+                    Color(hex: "00FFFF").opacity(0.08),
+                    Color.clear,
                     Color.white.opacity(0.2),
-                    Color.clear,
-                    Color.white.opacity(0.1),
-                    Color.clear,
-                    Color.white.opacity(0.15),
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
+
+            SubtleScanlines()
 
             if let memo = selectedMemo {
                 TranscriptView(memo: memo)
@@ -147,8 +150,6 @@ struct ContentView: View {
             }
         }
     }
-
-    // MARK: - Helpers
 
     private func createFolder() {
         let folder = Folder(name: "New Folder", sortIndex: folders.count)
@@ -188,42 +189,42 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Folder Section
-
 struct FolderSection: View {
     let folder: Folder
     let memos: [Memo]
     @Binding var selectedMemo: Memo?
     let allFolders: [Folder]
     let modelContext: ModelContext
+    let onRenameFolder: () -> Void
+    let renameMemo: (Memo) -> Void
     @State private var isExpanded = true
-    @State private var renaming = false
 
     var body: some View {
         VStack(spacing: 0) {
             Button { isExpanded.toggle() } label: {
-                HStack(spacing: 5) {
+                HStack(spacing: 6) {
                     Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(Color(hex: "6878A0"))
-                        .frame(width: 10)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Color(hex: "0080C0"))
+                        .frame(width: 12)
 
                     Image(systemName: "folder.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(Color(hex: "5080C0"))
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color(hex: "00B0FF"))
 
                     Text(folder.name.lowercased())
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(Color(hex: "4868A0"))
+                        .font(Theme.captionFont)
+                        .foregroundStyle(Color(hex: "0460A0"))
 
                     Spacer()
                 }
-                .padding(.horizontal, 6)
-                .padding(.vertical, 5)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .contextMenu {
-                Button("Rename\u{2026}") { renaming = true }
+                Button("Rename\u{2026}") { onRenameFolder() }
                 Divider()
                 Button("Delete", role: .destructive) {
                     for m in folder.memos { m.folder = nil }
@@ -238,71 +239,69 @@ struct FolderSection: View {
                         memo: memo,
                         isSelected: selectedMemo?.id == memo.id,
                         folders: allFolders,
-                        modelContext: modelContext
+                        modelContext: modelContext,
+                        onRename: { renameMemo(memo) }
                     ) { selectedMemo = memo }
-                    .padding(.leading, 12)
+                    .padding(.leading, 10)
                 }
-            }
-        }
-        .sheet(isPresented: $renaming) {
-            RetroRenameSheet(title: "rename folder", currentName: folder.name) { newName in
-                folder.name = newName
-                try? modelContext.save()
             }
         }
     }
 }
-
-// MARK: - Memo Row
 
 struct MemoRow: View {
     let memo: Memo
     let isSelected: Bool
     let folders: [Folder]
     let modelContext: ModelContext
+    let onRename: () -> Void
     let onSelect: () -> Void
-    @State private var renaming = false
 
     var body: some View {
         Button { onSelect() } label: {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(memo.title)
-                    .font(.system(size: 11))
-                    .foregroundStyle(isSelected ? .white : Color(hex: "3A4860"))
-                    .lineLimit(1)
+                    .font(Theme.bodyFont)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(isSelected ? .white : Color(hex: "044060"))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
 
-                HStack {
+                HStack(alignment: .center, spacing: 8) {
                     Text(memo.formattedDuration)
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundStyle(isSelected ? Color.white.opacity(0.7) : Color(hex: "7888A0"))
-                    Spacer()
+                        .font(Theme.smallMetaFont)
+                        .foregroundStyle(isSelected ? Color.white.opacity(0.9) : Color(hex: "2090C8"))
+                    Spacer(minLength: 4)
                     RetroStatusBadge(status: memo.status)
                 }
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 Group {
                     if isSelected {
-                        RoundedRectangle(cornerRadius: 3)
+                        Capsule()
                             .fill(
                                 LinearGradient(
-                                    colors: [Color(hex: "4890D0"), Color(hex: "3070B0")],
+                                    colors: [Color(hex: "00A8FF"), Color(hex: "0080E0")],
                                     startPoint: .top,
                                     endPoint: .bottom
                                 )
                             )
                             .overlay(
-                                RoundedRectangle(cornerRadius: 3)
-                                    .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
+                                Capsule()
+                                    .strokeBorder(Color.white.opacity(0.5), lineWidth: 1.5)
                             )
+                            .shadow(color: Color(hex: "00FFFF").opacity(0.4), radius: 6, y: 2)
                     }
                 }
             )
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .contextMenu {
-            Button("Rename\u{2026}") { renaming = true }
+            Button("Rename\u{2026}") { onRename() }
             if !folders.isEmpty {
                 Menu("Move to Folder") {
                     ForEach(folders.sorted(by: { $0.dateCreated < $1.dateCreated })) { folder in
@@ -316,12 +315,6 @@ struct MemoRow: View {
             Divider()
             Button("Delete", role: .destructive) {
                 modelContext.delete(memo)
-                try? modelContext.save()
-            }
-        }
-        .sheet(isPresented: $renaming) {
-            RetroRenameSheet(title: "rename memo", currentName: memo.title) { newName in
-                memo.title = newName
                 try? modelContext.save()
             }
         }
