@@ -13,6 +13,7 @@ struct ContentView: View {
     @State private var folderPendingRename: Folder?
     @State private var didSyncTranscriptExports = false
     @State private var importErrorMessage: String?
+    @State private var showSettings = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -63,6 +64,9 @@ struct ContentView: View {
         } message: {
             Text(importErrorMessage ?? "")
         }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+        }
     }
 
     private var sidebar: some View {
@@ -78,8 +82,9 @@ struct ContentView: View {
 
                 Spacer()
 
-                PixelStar(color: Color(hex: "00FFFF"))
-                    .padding(.trailing, 4)
+                BubbleButton(icon: "gearshape.fill", size: 28, color: Color(hex: "7090B0")) {
+                    showSettings = true
+                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)

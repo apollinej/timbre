@@ -7,11 +7,3 @@ DerivedData/
 *.dSYM
 *.ipa
 .DS_Store
-
-# User data (created at runtime)
-library/
-transcripts/
-models/
-*.store
-*.store-shm
-*.store-wal

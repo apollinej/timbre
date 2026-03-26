@@ -32,8 +32,14 @@ struct TranscriptView: View {
     @State private var viewModel = TranscriptViewModel()
     @AppStorage("selectedModel") private var selectedModelRaw = WhisperModel.baseEn.rawValue
     @State private var copiedToast = false
+    @State private var promptToast = false
     @State private var renamingSpeaker: Speaker?
     @State private var celebrationID: UUID?
+    @State private var showFindReplace = false
+    @State private var findText = ""
+    @State private var replaceText = ""
+    @State private var editingBlockIndex: Int?
+    @State private var editText = ""
 
     private var selectedModel: WhisperModel {
         WhisperModel(rawValue: selectedModelRaw) ?? .baseEn
@@ -54,33 +60,20 @@ struct TranscriptView: View {
                 Spacer()
 
                 if memo.status == .completed {
-                    Button { copyTranscriptToClipboard() } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "doc.on.doc")
-                                .font(.system(size: 14, weight: .semibold))
-                            Text("copy")
-                                .font(TimbreFont.fontBold(size: 14))
+                    HStack(spacing: 6) {
+                        headerPill(icon: "magnifyingglass", label: "find") {
+                            showFindReplace.toggle()
                         }
-                        .foregroundStyle(Color(hex: "0088FF"))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color.white.opacity(0.95), Color(hex: "C8F0FF")],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                )
-                        )
-                        .overlay(
-                            Capsule()
-                                .strokeBorder(Color(hex: "00B0FF").opacity(0.6), lineWidth: 1.5)
-                        )
-                        .shadow(color: Color(hex: "00C8FF").opacity(0.25), radius: 4, y: 2)
+                        headerPill(icon: "sparkles", label: "prompt") {
+                            generateSummaryPrompt()
+                        }
+                        headerPill(icon: "square.and.arrow.up", label: "export") {
+                            exportTranscript()
+                        }
+                        headerPill(icon: "doc.on.doc", label: "copy") {
+                            copyTranscriptToClipboard()
+                        }
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 14)
@@ -165,8 +158,8 @@ struct TranscriptView: View {
             }
         }
         .overlay(alignment: .top) {
-            if copiedToast {
-                Text("copied to clipboard")
+            if let toastText = activeToast {
+                Text(toastText)
                     .font(TimbreFont.fontBold(size: 14))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
@@ -312,7 +305,17 @@ struct TranscriptView: View {
     private var transcriptContentView: some View {
         let _ = viewModel.speakerVersion
 
-        return ScrollViewReader { proxy in
+        return VStack(spacing: 0) {
+            if showFindReplace {
+                FindReplaceBar(
+                    findText: $findText,
+                    replaceText: $replaceText,
+                    onReplaceAll: { findAndReplaceAll() },
+                    onClose: { showFindReplace = false }
+                )
+            }
+
+            ScrollViewReader { proxy in
             ScrollView {
                 if let transcript = memo.transcript {
                     let merged = mergeSegments(transcript.sortedSegments)
@@ -360,6 +363,7 @@ struct TranscriptView: View {
                 }
             }
         }
+        }
     }
 
     private func isBlockActive(_ block: MergedBlock) -> Bool {
@@ -379,10 +383,162 @@ struct TranscriptView: View {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
 
-        withAnimation { copiedToast = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            withAnimation { copiedToast = false }
+        showToast("copied to clipboard")
+    }
+
+    private func exportTranscript() {
+        let formats = ExportFormat.allCases
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = memo.title
+        panel.allowedContentTypes = [.plainText]
+
+        let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 200, height: 26))
+        popup.addItems(withTitles: formats.map { "\($0.label) (.\($0.fileExtension))" })
+        panel.accessoryView = popup
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        let format = formats[popup.indexOfSelectedItem]
+        guard let content = ExportService.export(memo: memo, format: format) else { return }
+
+        // Ensure correct extension
+        let finalURL: URL
+        if url.pathExtension != format.fileExtension {
+            finalURL = url.deletingPathExtension()
+                .appendingPathExtension(format.fileExtension)
+        } else {
+            finalURL = url
         }
+        try? content.write(to: finalURL, atomically: true, encoding: .utf8)
+    }
+
+    private func generateSummaryPrompt() {
+        guard let transcript = memo.transcript else { return }
+        let merged = mergeSegments(transcript.sortedSegments)
+        let transcriptText = merged.map { block in
+            let name = block.speaker?.effectiveName ?? "Speaker"
+            return "[\(name)] (\(TimeFormatter.format(block.startTime)))\n\(block.text)"
+        }.joined(separator: "\n\n")
+
+        let prompt = """
+        I have a meeting transcript that I need you to analyze. Please provide:
+
+        1. **Summary** (2-3 sentences capturing the key points)
+        2. **Key Decisions** (bulleted list of any decisions made)
+        3. **Action Items** (who needs to do what, with the speaker name if identifiable)
+        4. **Follow-ups** (unresolved questions or topics that need further discussion)
+
+        Here is the transcript:
+
+        ---
+        Title: \(memo.title)
+        Duration: \(memo.formattedDuration)
+        Date: \(memo.displayDate.formatted(date: .long, time: .shortened))
+
+        \(transcriptText)
+        ---
+        """
+
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(prompt, forType: .string)
+        showToast("prompt copied — paste into your favorite llm")
+    }
+
+    private func findAndReplaceAll() {
+        guard let transcript = memo.transcript,
+              !findText.isEmpty else { return }
+        var count = 0
+        for segment in transcript.sortedSegments {
+            if segment.text.contains(findText) {
+                segment.text = segment.text.replacingOccurrences(
+                    of: findText, with: replaceText
+                )
+                count += 1
+            }
+        }
+        if count > 0 {
+            try? modelContext.save()
+            viewModel.speakerVersion += 1
+            TranscriptDiskExport.syncAllMemos(modelContext: modelContext)
+            showToast("replaced in \(count) segment\(count == 1 ? "" : "s")")
+        } else {
+            showToast("not found")
+        }
+    }
+
+    private func saveSegmentEdit(segments: [Segment], blockIndex: Int, merged: [MergedBlock]) {
+        guard blockIndex < merged.count else { return }
+        let block = merged[blockIndex]
+        // Find all segments in this merged block and update their text
+        let blockSegments = segments.filter { seg in
+            seg.startTime >= block.startTime && seg.endTime <= block.endTime
+                && seg.speaker?.id == block.speaker?.id
+        }
+        if blockSegments.count == 1 {
+            blockSegments[0].text = editText
+        } else if !blockSegments.isEmpty {
+            // Distribute edited text across segments proportionally
+            blockSegments[0].text = editText
+            for seg in blockSegments.dropFirst() {
+                seg.text = ""
+            }
+        }
+        try? modelContext.save()
+        viewModel.speakerVersion += 1
+        TranscriptDiskExport.syncAllMemos(modelContext: modelContext)
+        editingBlockIndex = nil
+    }
+
+    private var activeToast: String? {
+        if copiedToast { return "copied to clipboard" }
+        if promptToast { return "prompt copied — paste into your favorite llm" }
+        return nil
+    }
+
+    private func showToast(_ message: String) {
+        copiedToast = false
+        promptToast = false
+        if message.contains("prompt") {
+            withAnimation { promptToast = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                withAnimation { promptToast = false }
+            }
+        } else {
+            withAnimation { copiedToast = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                withAnimation { copiedToast = false }
+            }
+        }
+    }
+
+    private func headerPill(icon: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .semibold))
+                Text(label)
+                    .font(TimbreFont.fontBold(size: 12))
+            }
+            .foregroundStyle(Color(hex: "0088FF"))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.95), Color(hex: "C8F0FF")],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+            )
+            .overlay(
+                Capsule()
+                    .strokeBorder(Color(hex: "00B0FF").opacity(0.6), lineWidth: 1.5)
+            )
+            .shadow(color: Color(hex: "00C8FF").opacity(0.25), radius: 4, y: 2)
+        }
+        .buttonStyle(.plain)
     }
 
     private func mergeSegments(_ segments: [Segment]) -> [MergedBlock] {
