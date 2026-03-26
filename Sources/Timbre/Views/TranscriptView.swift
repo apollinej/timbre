@@ -421,22 +421,46 @@ struct TranscriptView: View {
         }.joined(separator: "\n\n")
 
         let prompt = """
-        I have a meeting transcript that I need you to analyze. Please provide:
+        You are a senior McKinsey consultant producing meeting documentation. Analyze this transcript and produce structured, executive-quality meeting notes.
 
-        1. **Summary** (2-3 sentences capturing the key points)
-        2. **Key Decisions** (bulleted list of any decisions made)
-        3. **Action Items** (who needs to do what, with the speaker name if identifiable)
-        4. **Follow-ups** (unresolved questions or topics that need further discussion)
+        ## Output Format
 
-        Here is the transcript:
+        ### Executive Summary
+        2-3 sentences. Lead with the most important outcome or decision. Written so someone who wasn't in the meeting understands what happened and why it matters.
+
+        ### Detailed Notes
+        Organized by topic (not chronologically). For each topic:
+        - **Topic heading** in bold
+        - What was discussed, with attribution to speakers
+        - Any data points, numbers, or specifics mentioned
+        - Context that was implied but not stated explicitly
+
+        ### Key Decisions
+        Bulleted list. Each decision should include:
+        - What was decided
+        - Who made/drove the decision
+        - Reasoning or context behind it
+        - Any dissent or caveats noted
+
+        ### Action Items
+        Table format: | Owner | Action | Deadline (if mentioned) | Context |
+        Be specific. "Follow up on X" is not enough — include what specifically needs to happen.
+
+        ### Open Questions & Follow-ups
+        Items that were raised but not resolved. Flag which are blocking vs. nice-to-have.
+
+        ### Strategic Observations
+        2-3 bullets on what was NOT said but probably should have been discussed, risks that were glossed over, or assumptions that weren't challenged. This is your consultant value-add.
 
         ---
-        Title: \(memo.title)
-        Duration: \(memo.formattedDuration)
-        Date: \(memo.displayDate.formatted(date: .long, time: .shortened))
+
+        **Meeting:** \(memo.title)
+        **Duration:** \(memo.formattedDuration)
+        **Date:** \(memo.displayDate.formatted(date: .long, time: .shortened))
+
+        **Transcript:**
 
         \(transcriptText)
-        ---
         """
 
         NSPasteboard.general.clearContents()
@@ -449,9 +473,12 @@ struct TranscriptView: View {
               !findText.isEmpty else { return }
         var count = 0
         for segment in transcript.sortedSegments {
-            if segment.text.contains(findText) {
+            // Case-insensitive search
+            if segment.text.localizedCaseInsensitiveContains(findText) {
                 segment.text = segment.text.replacingOccurrences(
-                    of: findText, with: replaceText
+                    of: findText,
+                    with: replaceText,
+                    options: [.caseInsensitive]
                 )
                 count += 1
             }
@@ -459,7 +486,7 @@ struct TranscriptView: View {
         if count > 0 {
             try? modelContext.save()
             viewModel.speakerVersion += 1
-            TranscriptDiskExport.syncAllMemos(modelContext: modelContext)
+            try? TranscriptDiskExport.writeMemoTranscriptIfNeeded(memo)
             showToast("replaced in \(count) segment\(count == 1 ? "" : "s")")
         } else {
             showToast("not found")
