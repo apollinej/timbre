@@ -507,15 +507,16 @@ struct MergedSegmentRow: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 10) {
-                    SpeakerBadge(speaker: block.speaker)
-                        .highPriorityGesture(
-                            TapGesture().onEnded { onRenameSpeaker() }
-                        )
+                    Button { onRenameSpeaker() } label: {
+                        SpeakerBadge(speaker: block.speaker)
+                    }
+                    .buttonStyle(.plain)
 
                     Text(TimeFormatter.format(block.startTime))
                         .font(Theme.smallMetaFont)
                         .fontWeight(.medium)
                         .foregroundStyle(Color(hex: "0088C8"))
+                        .onTapGesture { onTap() }
                 }
 
                 Text(block.text)
@@ -524,6 +525,8 @@ struct MergedSegmentRow: View {
                     .textSelection(.enabled)
                     .lineLimit(nil)
                     .fixedSize(horizontal: false, vertical: true)
+                    .contentShape(Rectangle())
+                    .onTapGesture { onTap() }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
@@ -533,8 +536,6 @@ struct MergedSegmentRow: View {
                 ? Color(hex: "00C8FF").opacity(0.12)
                 : Color.clear
         )
-        .contentShape(Rectangle())
-        .onTapGesture { onTap() }
     }
 }
 
