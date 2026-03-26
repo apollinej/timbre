@@ -18,16 +18,22 @@ enum TimbrePaths {
         root.appendingPathComponent("library", isDirectory: true)
     }
 
+    /// Plain-text transcript mirrors (one `.txt` per memo id).
+    static var transcripts: URL {
+        root.appendingPathComponent("transcripts", isDirectory: true)
+    }
+
     /// SwiftData store file (memos, folders, transcripts, segments, speakers, renames).
     static var databaseStoreURL: URL {
         root.appendingPathComponent("timbre.store", isDirectory: false)
     }
 
-    /// Creates `timbre/` and `timbre/library/` if missing.
+    /// Creates `timbre/`, `library/`, and `transcripts/` if missing.
     static func prepareStorageDirectories() throws {
         let fm = FileManager.default
         try fm.createDirectory(at: root, withIntermediateDirectories: true)
         try fm.createDirectory(at: library, withIntermediateDirectories: true)
+        try fm.createDirectory(at: transcripts, withIntermediateDirectories: true)
     }
 
     /// Human-readable path for About / debugging.

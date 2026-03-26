@@ -145,6 +145,7 @@ final class TranscriptViewModel {
         memo.transcriptionProgress = 1.0
 
         try? context.save()
+        try? TranscriptDiskExport.writeMemoTranscriptIfNeeded(memo)
     }
 
     // MARK: - Playback

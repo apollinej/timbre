@@ -186,6 +186,7 @@ struct TranscriptView: View {
             SpeakerRenameSheet(speaker: speaker) { newName in
                 viewModel.renameSpeaker(speaker, to: newName)
                 try? modelContext.save()
+                TranscriptDiskExport.syncAllMemos(modelContext: modelContext)
             }
         }
     }

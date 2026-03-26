@@ -11,6 +11,7 @@ struct ContentView: View {
     /// Present rename UI from the root so sheets work reliably (not from `LazyVStack` rows).
     @State private var memoPendingRename: Memo?
     @State private var folderPendingRename: Folder?
+    @State private var didSyncTranscriptExports = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -39,6 +40,7 @@ struct ContentView: View {
             RetroRenameSheet(title: "rename memo", currentName: memo.title) { newName in
                 memo.title = newName
                 try? modelContext.save()
+                try? TranscriptDiskExport.writeMemoTranscriptIfNeeded(memo)
             }
         }
         .sheet(item: $folderPendingRename) { folder in
@@ -46,6 +48,11 @@ struct ContentView: View {
                 folder.name = newName
                 try? modelContext.save()
             }
+        }
+        .onAppear {
+            guard !didSyncTranscriptExports else { return }
+            didSyncTranscriptExports = true
+            TranscriptDiskExport.syncAllMemos(modelContext: modelContext)
         }
     }
 
@@ -314,6 +321,7 @@ struct MemoRow: View {
             }
             Divider()
             Button("Delete", role: .destructive) {
+                TranscriptDiskExport.removeFile(for: memo.id)
                 modelContext.delete(memo)
                 try? modelContext.save()
             }

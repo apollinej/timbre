@@ -52,9 +52,22 @@ All memos, transcripts, speaker renames, and folders are stored under **your Des
 |------|----------|
 | **SwiftData database** (metadata + full transcript text + speaker names) | `~/Desktop/apolline-production/timbre/timbre.store` |
 | **Imported audio files** (copies) | `~/Desktop/apolline-production/timbre/library/` |
+| **Plain-text transcript mirrors** (same content as export → plain text) | `~/Desktop/apolline-production/timbre/transcripts/<memo-uuid>.txt` |
 | **Whisper ML models** (download cache) | `~/Library/Application Support/Timbre/Models/` |
 
-On first launch, Timbre creates `~/Desktop/apolline-production/timbre/` and `library/` if needed. Imports **copy** the audio into `library/` so your library is self-contained on the Desktop.
+On first launch, Timbre creates `~/Desktop/apolline-production/timbre/`, `library/`, and `transcripts/` if needed. Imports **copy** the audio into `library/` so your library is self-contained on the Desktop.
+
+### Legacy database migration
+
+If you used Timbre **before** data moved to the Desktop, your old store was probably:
+
+`~/Library/Application Support/default.store`
+
+On first run, if that file looks like a Timbre database (has a `ZMEMO` table) **and** your Desktop `timbre.store` has no memos yet, Timbre **copies** the legacy store (including `-wal` / `-shm` if present) into `~/Desktop/apolline-production/timbre/timbre.store` once. The original `default.store` is left in place as a backup.
+
+### Transcript `.txt` files
+
+Whenever a transcription finishes, you rename a memo, or you rename a speaker, Timbre refreshes the `.txt` files under `transcripts/`. Deleting a memo removes its matching file. Orphan `.txt` files are removed on the next full sync when the app opens.
 
 **Note:** If you later wrap Timbre in a **sandboxed** Mac app, writing to the Desktop may require extra entitlements or a user-chosen folder—this setup targets the default non-sandboxed Swift package run from Xcode / `swift run`.
 

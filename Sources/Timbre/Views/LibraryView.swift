@@ -174,6 +174,7 @@ struct LibraryView: View {
                 if selectedMemo?.id == memo.id {
                     selectedMemo = nil
                 }
+                TranscriptDiskExport.removeFile(for: memo.id)
                 modelContext.delete(memo)
                 try? modelContext.save()
             }

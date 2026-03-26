@@ -11,6 +11,7 @@ struct TimbreApp: App {
         TimbreFont.register()
 
         do {
+            try TimbreMigration.migrateLegacyStoreIfNeeded()
             try TimbrePaths.prepareStorageDirectories()
             let schema = Schema([
                 Folder.self,
