@@ -12,6 +12,7 @@ struct ContentView: View {
     @State private var memoPendingRename: Memo?
     @State private var folderPendingRename: Folder?
     @State private var didSyncTranscriptExports = false
+    @State private var importErrorMessage: String?
 
     var body: some View {
         HStack(spacing: 0) {
@@ -53,6 +54,14 @@ struct ContentView: View {
             guard !didSyncTranscriptExports else { return }
             didSyncTranscriptExports = true
             TranscriptDiskExport.syncAllMemos(modelContext: modelContext)
+        }
+        .alert("import failed", isPresented: Binding(
+            get: { importErrorMessage != nil },
+            set: { if !$0 { importErrorMessage = nil } }
+        )) {
+            Button("ok", role: .cancel) { importErrorMessage = nil }
+        } message: {
+            Text(importErrorMessage ?? "")
         }
     }
 
@@ -177,7 +186,12 @@ struct ContentView: View {
         guard panel.runModal() == .OK else { return }
         Task {
             let imported = await importer.importFiles(panel.urls, into: modelContext)
-            if let first = imported.first { selectedMemo = first }
+            if let first = imported.first {
+                selectedMemo = first
+                importErrorMessage = nil
+            } else if let err = importer.lastError {
+                importErrorMessage = err
+            }
         }
     }
 
@@ -189,7 +203,12 @@ struct ContentView: View {
                 else { return }
                 Task { @MainActor in
                     let imported = await importer.importFiles([url], into: modelContext)
-                    if let first = imported.first { selectedMemo = first }
+                    if let first = imported.first {
+                        selectedMemo = first
+                        importErrorMessage = nil
+                    } else if let err = importer.lastError {
+                        importErrorMessage = err
+                    }
                 }
             }
         }

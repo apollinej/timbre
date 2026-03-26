@@ -2,12 +2,17 @@ import AVFoundation
 import Foundation
 
 enum AudioFileHelper {
+    /// Extensions we accept (many “songs” are `.mp4` / `.m4v` containers; `.aif` is common).
     static let supportedExtensions: Set<String> = [
-        "m4a", "wav", "mp3", "flac", "aac", "caf", "aiff"
+        "m4a", "m4p", "m4b", "wav", "mp3", "flac", "aac", "caf", "aiff", "aif", "aifc",
+        "mp4", "m4v",
     ]
 
     static func isSupported(_ url: URL) -> Bool {
-        supportedExtensions.contains(url.pathExtension.lowercased())
+        let ext = url.pathExtension.lowercased()
+        if supportedExtensions.contains(ext) { return true }
+        // File has no extension — still try (panel / drag may omit it).
+        return ext.isEmpty
     }
 
     /// Extracts duration and metadata from an audio file

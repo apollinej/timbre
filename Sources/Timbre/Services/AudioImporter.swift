@@ -16,14 +16,23 @@ final class AudioImporter {
         return FileManager.default.fileExists(atPath: path.path) ? path : nil
     }()
 
-    static let supportedTypes: [UTType] = [
-        .audio,
-        .mpeg4Audio,
-        .wav,
-        .mp3,
-        UTType(filenameExtension: "flac")!,
-        .aiff,
-    ]
+    static let supportedTypes: [UTType] = {
+        var types: [UTType] = [
+            .audio,
+            .mpeg4Audio,
+            .mpeg4Movie,
+            .movie,
+            .wav,
+            .mp3,
+            .aiff,
+        ]
+        if let aac = UTType(filenameExtension: "aac") { types.append(aac) }
+        if let flac = UTType(filenameExtension: "flac") { types.append(flac) }
+        if let m4p = UTType(filenameExtension: "m4p") { types.append(m4p) }
+        if let aif = UTType(filenameExtension: "aif") { types.append(aif) }
+        if let aifc = UTType(filenameExtension: "aifc") { types.append(aifc) }
+        return types
+    }()
 
     func importFiles(
         _ urls: [URL],
@@ -37,7 +46,8 @@ final class AudioImporter {
 
         for url in urls {
             guard AudioFileHelper.isSupported(url) else {
-                lastError = "Unsupported format: \(url.pathExtension)"
+                let ext = url.pathExtension.isEmpty ? "(no extension)" : ".\(url.pathExtension)"
+                lastError = "Unsupported format \(ext). Try m4a, mp3, wav, aiff, flac, or mp4 audio."
                 continue
             }
 
@@ -64,7 +74,14 @@ final class AudioImporter {
         try TimbrePaths.prepareStorageDirectories()
 
         let rawExt = url.pathExtension.lowercased()
-        let ext = rawExt.isEmpty ? "m4a" : rawExt
+        let ext: String
+        if rawExt.isEmpty {
+            ext = "m4a"
+        } else if AudioFileHelper.supportedExtensions.contains(rawExt) {
+            ext = rawExt
+        } else {
+            ext = "m4a"
+        }
         let dest = TimbrePaths.library.appendingPathComponent("\(UUID().uuidString).\(ext)")
 
         let fm = FileManager.default
