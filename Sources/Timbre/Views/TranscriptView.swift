@@ -336,6 +336,7 @@ struct TranscriptView: View {
                                 block: block,
                                 isActive: isBlockActive(block),
                                 isEditing: isEditMode && editingBlockIndex == index,
+                                isEditMode: isEditMode,
                                 speakerVersion: viewModel.speakerVersion,
                                 onTap: {
                                     if isEditMode {
@@ -703,6 +704,7 @@ struct MergedSegmentRow: View {
     let block: MergedBlock
     let isActive: Bool
     let isEditing: Bool
+    let isEditMode: Bool
     let speakerVersion: Int
     let onTap: () -> Void
     let onRenameSpeaker: () -> Void
@@ -807,14 +809,26 @@ struct MergedSegmentRow: View {
                         }
                     }
                 } else {
-                    Text(block.text)
-                        .font(Theme.bodyFont)
-                        .foregroundStyle(Color(hex: "043050"))
-                        .textSelection(.enabled)
-                        .lineLimit(nil)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .contentShape(Rectangle())
-                        .onTapGesture { onTap() }
+                    // When edit mode is on, disable text selection so the tap
+                    // reaches onTapGesture instead of being swallowed by selection.
+                    if isEditMode {
+                        Text(block.text)
+                            .font(Theme.bodyFont)
+                            .foregroundStyle(Color(hex: "043050"))
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .contentShape(Rectangle())
+                            .onTapGesture { onTap() }
+                    } else {
+                        Text(block.text)
+                            .font(Theme.bodyFont)
+                            .foregroundStyle(Color(hex: "043050"))
+                            .textSelection(.enabled)
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .contentShape(Rectangle())
+                            .onTapGesture { onTap() }
+                    }
                 }
             }
             .padding(.horizontal, 10)
