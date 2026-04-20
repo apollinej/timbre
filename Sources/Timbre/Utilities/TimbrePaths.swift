@@ -1,10 +1,10 @@
 import Foundation
 
 /// All Timbre user data lives under a configurable root directory.
-/// Default: `~/Desktop/apolline-production/timbre/`
+/// Default: `~/Desktop/Code/apolline-production/timbre/data/`
 /// User can change via Settings.
 enum TimbrePaths {
-    private static let defaultRoot = "Desktop/apolline-production/timbre"
+    private static let defaultRoot = "Desktop/Code/apolline-production/timbre/data"
     private static let rootKey = "timbreStorageRoot"
 
     /// User-configurable storage root. Persisted in UserDefaults.

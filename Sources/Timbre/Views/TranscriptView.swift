@@ -60,7 +60,7 @@ struct TranscriptView: View {
 
                 Spacer()
 
-                if memo.status == .completed {
+                if memo.status == .completed || memo.status == .analyzed {
                     HStack(spacing: 6) {
                         headerPill(
                             icon: isEditMode ? "checkmark" : "pencil",
@@ -131,14 +131,14 @@ struct TranscriptView: View {
                 switch memo.status {
                 case .imported: readyToTranscribeView
                 case .transcribing: transcribingView
-                case .completed: transcriptContentView
+                case .completed, .analyzed: transcriptContentView
                 case .failed(let error): failedView(error)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             // Playback bar
-            if memo.status == .completed {
+            if memo.status == .completed || memo.status == .analyzed {
                 Rectangle()
                     .fill(Color(hex: "0080C0").opacity(0.22))
                     .frame(height: 1)

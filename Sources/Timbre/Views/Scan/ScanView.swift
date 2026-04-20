@@ -1,0 +1,230 @@
+import SwiftUI
+import SwiftData
+
+struct ScanView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \Memo.dateImported, order: .reverse) private var allMemos: [Memo]
+    @Query private var persons: [Person]
+    @State private var vm = ScanViewModel()
+    let onGoHome: () -> Void
+    let onOpenMemo: (Memo) -> Void
+
+    private var filteredMemos: [Memo] { vm.filtered(allMemos) }
+
+    var body: some View {
+        ZStack {
+            background
+
+            VStack(spacing: 0) {
+                headerBanner
+                filterBar
+                viewModeAndSortBar
+                mainContent
+            }
+        }
+    }
+
+    private var background: some View {
+        ZStack { Theme.playerFaceGradient; SubtleScanlines() }
+    }
+
+    // MARK: - Header
+
+    private var headerBanner: some View {
+        ZStack {
+            BrushedMetal(baseColor: Color(hex: "B0E0F8"), intensity: 0.32)
+            VStack {
+                Rectangle().fill(Color.white.opacity(0.55)).frame(height: 1)
+                Spacer()
+                Rectangle().fill(Color(hex: "0080C0").opacity(0.18)).frame(height: 1)
+            }
+            Text("browse")
+                .font(TimbreFont.fontBold(size: 22))
+                .foregroundStyle(Color(hex: "004878"))
+            HStack {
+                Spacer()
+                HomeButton(action: onGoHome).padding(.trailing, 12)
+            }
+        }
+        .frame(height: 48)
+    }
+
+    // MARK: - Filters
+
+    private var filterBar: some View {
+        VStack(spacing: 8) {
+            // Person chips
+            if !persons.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(persons) { person in
+                            TimbrePersonChip(
+                                person: person,
+                                isSelected: vm.selectedPersonIDs.contains(person.id)
+                            ) {
+                                if vm.selectedPersonIDs.contains(person.id) {
+                                    vm.selectedPersonIDs.remove(person.id)
+                                } else {
+                                    vm.selectedPersonIDs.insert(person.id)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            HStack(spacing: 8) {
+                // Time pills
+                ForEach(ScanViewModel.TimeFilter.allCases, id: \.self) { tf in
+                    TimbreTogglePill(
+                        label: tf.rawValue,
+                        isSelected: vm.timeFilter == tf
+                    ) { vm.timeFilter = tf }
+                }
+
+                Spacer()
+
+                // Keyword search
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color(hex: "0088C8"))
+                    TextField("search\u{2026}", text: $vm.keyword)
+                        .textFieldStyle(.plain)
+                        .font(TimbreFont.font(size: 13))
+                        .frame(width: 120)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule().fill(Color.white.opacity(0.5))
+                        .overlay(Capsule().strokeBorder(Color(hex: "0080C0").opacity(0.2)))
+                )
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(
+            LinearGradient(
+                colors: [Color(hex: "D8F4FF"), Color(hex: "C8ECFF")],
+                startPoint: .top, endPoint: .bottom
+            )
+        )
+    }
+
+    // MARK: - View mode + sort
+
+    private var viewModeAndSortBar: some View {
+        HStack(spacing: 0) {
+            // View mode icons
+            ForEach(ScanViewModel.ViewMode.allCases, id: \.self) { mode in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) { vm.viewMode = mode }
+                } label: {
+                    Image(systemName: mode.icon)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(
+                            vm.viewMode == mode ? Color(hex: "0088FF") : Color(hex: "2090C8")
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(
+                            vm.viewMode == mode ? Color(hex: "00D8FF").opacity(0.12) : Color.clear
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+
+            Spacer()
+
+            // Sort toggle
+            ForEach(ScanViewModel.SortOrder.allCases, id: \.self) { order in
+                TimbreTogglePill(
+                    label: order.rawValue,
+                    isSelected: vm.sortOrder == order
+                ) { vm.sortOrder = order }
+            }
+            .padding(.trailing, 14)
+        }
+        .background(BrushedMetal(baseColor: Color(hex: "C0E8F8"), intensity: 0.22))
+        .overlay(
+            VStack {
+                Spacer()
+                Rectangle().fill(Color(hex: "0080C0").opacity(0.12)).frame(height: 1)
+            }
+        )
+    }
+
+    // MARK: - Main content with optional side panel
+
+    private var mainContent: some View {
+        GeometryReader { geo in
+            HStack(spacing: 0) {
+                // Left: cards/list/calendar
+                Group {
+                    if filteredMemos.isEmpty {
+                        emptyState
+                    } else {
+                        contentView
+                    }
+                }
+                .frame(width: vm.selectedMemo != nil ? geo.size.width * 0.5 : geo.size.width)
+
+                // Right: side panel — half the page
+                if let memo = vm.selectedMemo {
+                    MemoSidePanel(
+                        memo: memo,
+                        onClose: {
+                            withAnimation(.easeInOut(duration: 0.2)) { vm.selectedMemo = nil }
+                        },
+                        onPrevious: {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                vm.selectPrevious(in: filteredMemos)
+                            }
+                        },
+                        onNext: {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                vm.selectNext(in: filteredMemos)
+                            }
+                        },
+                        onOpenAnalyze: { onOpenMemo(memo) }
+                    )
+                    .frame(width: geo.size.width * 0.5)
+                    .transition(.move(edge: .trailing))
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var contentView: some View {
+        switch vm.viewMode {
+        case .card:
+            ScanCardGrid(memos: filteredMemos) { memo in
+                withAnimation(.easeInOut(duration: 0.2)) { vm.selectedMemo = memo }
+            }
+        case .list:
+            ScanListView(memos: filteredMemos) { memo in
+                withAnimation(.easeInOut(duration: 0.2)) { vm.selectedMemo = memo }
+            }
+        case .calendar:
+            ScanCalendarView(memos: filteredMemos) { memo in
+                withAnimation(.easeInOut(duration: 0.2)) { vm.selectedMemo = memo }
+            }
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 10) {
+            Spacer()
+            Text("no analyzed memos yet")
+                .font(TimbreFont.fontBold(size: 16))
+                .foregroundStyle(Color(hex: "044060"))
+            Text("run prompt on a memo in analyze first")
+                .font(Theme.captionFont)
+                .foregroundStyle(Color(hex: "2090C8"))
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+    }
+}

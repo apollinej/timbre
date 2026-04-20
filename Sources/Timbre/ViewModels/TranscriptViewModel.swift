@@ -11,11 +11,14 @@ final class TranscriptViewModel {
     var transcriptionError: String?
     /// Bumped to force SwiftUI re-render after speaker rename
     var speakerVersion = 0
+    var isAnalyzing = false
+    var analysisError: String?
 
     private var player: AVAudioPlayer?
     private var audioURL: URL?
     private var isAccessingSecurityScope = false
     private let engine = TranscriptionEngine()
+    private let orchestrator = AnalysisOrchestrator()
 
     func loadAudio(from memo: Memo) async {
         // Release any previous security scope
@@ -97,6 +100,87 @@ final class TranscriptViewModel {
         speaker.displayName = name.isEmpty ? nil : name
         // Bump version so SwiftUI re-renders merged blocks
         speakerVersion += 1
+    }
+
+    // MARK: - Analysis
+
+    func runAnalysis(memo: Memo, context: ModelContext) async {
+        guard !isAnalyzing else { return }
+        isAnalyzing = true
+        analysisError = nil
+
+        guard let transcript = memo.transcript else {
+            analysisError = AnalysisError.noTranscript.localizedDescription
+            isAnalyzing = false
+            return
+        }
+
+        let text = Self.buildTranscriptText(from: transcript)
+        do {
+            let result = try await orchestrator.runFullAnalysis(
+                transcript: text,
+                title: memo.title,
+                duration: memo.duration,
+                date: memo.dateRecorded ?? memo.dateImported
+            )
+            writeAnalysis(result, to: memo, context: context)
+        } catch {
+            analysisError = error.localizedDescription
+        }
+        isAnalyzing = false
+    }
+
+    private func writeAnalysis(
+        _ result: FullAnalysisResult,
+        to memo: Memo,
+        context: ModelContext
+    ) {
+        let analysis = memo.analysis ?? MemoAnalysis(analysisModelUsed: "openai-gpt-4o")
+        analysis.summary = result.summary
+        analysis.detailedNotes = result.detailedNotes
+        analysis.dateAnalyzed = .now
+        analysis.analysisModelUsed = "openai-gpt-4o"
+        analysis.isStale = false
+
+        analysis.actionItems.forEach { context.delete($0) }
+        analysis.openThreads.forEach { context.delete($0) }
+        analysis.keyDecisions.forEach { context.delete($0) }
+
+        analysis.actionItems = result.actionItems.map {
+            makeItem($0, type: "action", memoID: memo.id, context: context)
+        }
+        analysis.openThreads = result.threads.map {
+            makeItem($0, type: "thread", memoID: memo.id, context: context)
+        }
+        analysis.keyDecisions = result.decisions.map {
+            makeItem($0, type: "decision", memoID: memo.id, context: context)
+        }
+
+        if memo.analysis == nil {
+            context.insert(analysis)
+            memo.analysis = analysis
+        }
+        memo.status = .analyzed
+        try? context.save()
+    }
+
+    private func makeItem(
+        _ text: String,
+        type: String,
+        memoID: UUID,
+        context: ModelContext
+    ) -> AnalysisItem {
+        let item = AnalysisItem(text: text, sourceMemoID: memoID, itemType: type)
+        context.insert(item)
+        return item
+    }
+
+    static func buildTranscriptText(from transcript: Transcript) -> String {
+        transcript.sortedSegments.map { seg in
+            let speaker = seg.speaker?.effectiveName ?? "unknown"
+            let time = TimeFormatter.format(seg.startTime)
+            return "[\(time)] \(speaker): \(seg.text)"
+        }.joined(separator: "\n")
     }
 
     private func saveTranscript(

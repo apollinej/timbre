@@ -249,6 +249,7 @@ struct RetroStatusBadge: View {
         case .imported: Color(hex: "0088C8")
         case .transcribing: Color(hex: "00B0FF")
         case .completed: Color(hex: "00E070")
+        case .analyzed: Color(hex: "A080FF")
         case .failed: Color(hex: "FF4088")
         }
     }

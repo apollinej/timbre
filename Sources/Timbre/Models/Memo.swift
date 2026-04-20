@@ -12,9 +12,14 @@ final class Memo {
     var duration: TimeInterval
     var fileSize: Int64
     @Relationship(deleteRule: .cascade) var transcript: Transcript?
+    @Relationship(deleteRule: .cascade) var analysis: MemoAnalysis?
     var folder: Folder?
     var status: MemoStatus
     var transcriptionProgress: Double
+    var workspaceID: UUID?
+    var timezoneID: String?
+    var location: String?
+    var context: String?
 
     init(
         title: String,
@@ -32,7 +37,6 @@ final class Memo {
         self.dateRecorded = dateRecorded
         self.duration = duration
         self.fileSize = fileSize
-        self.transcript = nil
         self.status = .imported
         self.transcriptionProgress = 0
     }
@@ -45,5 +49,10 @@ final class Memo {
         let minutes = Int(duration) / 60
         let seconds = Int(duration) % 60
         return String(format: "%d:%02d", minutes, seconds)
+    }
+
+    var timezone: TimeZone? {
+        get { timezoneID.flatMap { TimeZone(identifier: $0) } }
+        set { timezoneID = newValue?.identifier }
     }
 }

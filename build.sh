@@ -53,9 +53,11 @@ mkdir -p "$APP_DIR/Contents/Resources"
 cp ".build/$BUILD_CONFIG/$APP_NAME" "$APP_DIR/Contents/MacOS/$APP_NAME"
 
 # Copy resource bundle (fonts, etc.)
+# SPM's Bundle.module accessor looks at Bundle.main.bundleURL (the .app root),
+# not Contents/Resources/, so place it at the app root.
 BUNDLE_PATH=$(find ".build/$BUILD_CONFIG/" -name "Timbre_Timbre.bundle" -type d 2>/dev/null | head -1)
 if [[ -n "$BUNDLE_PATH" ]]; then
-    cp -R "$BUNDLE_PATH" "$APP_DIR/Contents/Resources/Timbre_Timbre.bundle"
+    cp -R "$BUNDLE_PATH" "$APP_DIR/Timbre_Timbre.bundle"
 fi
 
 # Create Info.plist

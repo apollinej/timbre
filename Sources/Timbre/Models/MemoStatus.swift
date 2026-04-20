@@ -4,6 +4,7 @@ enum MemoStatus: Codable, Equatable {
     case imported
     case transcribing
     case completed
+    case analyzed
     case failed(error: String)
 
     var isTranscribing: Bool {
@@ -26,6 +27,7 @@ enum MemoStatus: Codable, Equatable {
         case .imported: "ready"
         case .transcribing: "transcribing"
         case .completed: "done"
+        case .analyzed: "analyzed"
         case .failed: "failed"
         }
     }

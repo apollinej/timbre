@@ -5,6 +5,7 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Memo.dateImported, order: .reverse) private var memos: [Memo]
     @Query(sort: \Folder.sortIndex) private var folders: [Folder]
+    @State private var router = NavigationRouter()
     @State private var selectedMemo: Memo?
     @State private var importer = AudioImporter()
     @State private var isTargeted = false
@@ -16,20 +17,12 @@ struct ContentView: View {
     @State private var showSettings = false
 
     var body: some View {
-        HStack(spacing: 0) {
-            sidebar
-                .frame(width: 280)
-
-            ZStack {
-                Rectangle().fill(Color(hex: "0068A0").opacity(0.35))
-                HStack(spacing: 0) {
-                    Rectangle().fill(Color(hex: "004060").opacity(0.35)).frame(width: 1)
-                    Rectangle().fill(Color.white.opacity(0.55)).frame(width: 1)
-                }
+        Group {
+            if router.showsSidebar {
+                sidebarLayout
+            } else {
+                fullWidthLayout
             }
-            .frame(width: 2)
-
-            detail
         }
         .onDrop(of: AudioImporter.supportedTypes, isTargeted: $isTargeted) { providers in
             handleDrop(providers)
@@ -69,9 +62,76 @@ struct ContentView: View {
         }
     }
 
+    // MARK: - Layout Variants
+
+    /// Original sidebar + transcript view (routes: .analyze / .memo)
+    private var sidebarLayout: some View {
+        HStack(spacing: 0) {
+            sidebar
+                .frame(width: 280)
+
+            ZStack {
+                Rectangle().fill(Color(hex: "0068A0").opacity(0.35))
+                HStack(spacing: 0) {
+                    Rectangle().fill(Color(hex: "004060").opacity(0.35)).frame(width: 1)
+                    Rectangle().fill(Color.white.opacity(0.55)).frame(width: 1)
+                }
+            }
+            .frame(width: 2)
+
+            detail
+        }
+    }
+
+    /// Home / record / scan / threads — full-width views
+    private var fullWidthLayout: some View {
+        ZStack {
+            switch router.activeRoute {
+            case .home:
+                HomeView { route in router.navigate(to: route) }
+            case .threads:
+                ThreadsView(
+                    onGoHome: { router.goHome() },
+                    onOpenMemo: { memo in
+                        selectedMemo = memo
+                        router.navigate(to: .memo(memo))
+                    }
+                )
+            default:
+                // record / scan / me — not implemented yet, fall back to analyze
+                analyzeComingSoon
+            }
+        }
+    }
+
+    private var analyzeComingSoon: some View {
+        VStack(spacing: 16) {
+            HomeButton { router.goHome() }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, 16)
+                .padding(.top, 12)
+            Spacer()
+            Text("coming soon — use analyze for now")
+                .font(Theme.captionFont)
+                .foregroundStyle(Color(hex: "2090C8"))
+            TimbrePill("go to analyze", style: .primary) {
+                router.navigate(to: .analyze)
+            }
+            Spacer()
+        }
+        .background(
+            ZStack {
+                Theme.playerFaceGradient
+                SubtleScanlines()
+            }
+        )
+    }
+
     private var sidebar: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
+                HomeButton { router.goHome() }
+
                 BubbleButton(icon: "plus", size: 32, color: Color(hex: "0088FF")) {
                     openImportPanel()
                 }

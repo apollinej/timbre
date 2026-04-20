@@ -19,6 +19,9 @@ struct TimbreApp: App {
                 Transcript.self,
                 Segment.self,
                 Speaker.self,
+                Person.self,
+                MemoAnalysis.self,
+                AnalysisItem.self,
             ])
             let configuration = ModelConfiguration(
                 schema: schema,
