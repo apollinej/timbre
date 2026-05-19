@@ -30,7 +30,8 @@ final class ScanViewModel {
     var timeFilter: TimeFilter = .all
     var sortOrder: SortOrder = .recent
     var keyword: String = ""
-    var selectedPersonIDs: Set<UUID> = []
+    /// Lowercased effective speaker names selected for filtering.
+    var selectedSpeakerNames: Set<String> = []
 
     /// Selected memo for side panel
     var selectedMemo: Memo?
@@ -66,12 +67,15 @@ final class ScanViewModel {
             }
         }
 
-        // Person filter
-        if !selectedPersonIDs.isEmpty {
+        // Speaker filter — match by lowercased effective speaker name.
+        // Chips are derived from real segments, so names always intersect cleanly.
+        if !selectedSpeakerNames.isEmpty {
             result = result.filter { memo in
                 guard let segs = memo.transcript?.segments else { return false }
-                let ids = Set(segs.compactMap { $0.speaker?.id })
-                return !ids.isDisjoint(with: selectedPersonIDs)
+                return segs.contains { seg in
+                    guard let s = seg.speaker else { return false }
+                    return selectedSpeakerNames.contains(s.effectiveName.lowercased())
+                }
             }
         }
 

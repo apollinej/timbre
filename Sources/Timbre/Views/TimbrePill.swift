@@ -102,12 +102,29 @@ struct TimbrePersonChip: View {
     let action: () -> Void
 
     var body: some View {
+        TimbreColoredChip(
+            label: person.canonicalName.lowercased(),
+            colorHex: person.colorHex,
+            isSelected: isSelected,
+            action: action
+        )
+    }
+}
+
+/// Generic colored filter chip — for any (label, color) pair.
+struct TimbreColoredChip: View {
+    let label: String
+    let colorHex: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
         Button(action: action) {
             HStack(spacing: 5) {
                 Circle()
-                    .fill(Color(hex: person.colorHex))
+                    .fill(Color(hex: colorHex))
                     .frame(width: 8, height: 8)
-                Text(person.canonicalName.lowercased())
+                Text(label)
                     .font(TimbreFont.fontBold(size: 11))
                     .foregroundStyle(isSelected ? .white : Color(hex: "044060"))
             }
@@ -116,14 +133,14 @@ struct TimbrePersonChip: View {
             .background(
                 Capsule().fill(
                     isSelected
-                        ? AnyShapeStyle(Color(hex: person.colorHex).opacity(0.8))
+                        ? AnyShapeStyle(Color(hex: colorHex).opacity(0.8))
                         : AnyShapeStyle(Color(hex: "E8F4FF"))
                 )
             )
             .overlay(
                 Capsule().strokeBorder(
                     isSelected
-                        ? Color(hex: person.colorHex)
+                        ? Color(hex: colorHex)
                         : Color(hex: "0080C0").opacity(0.35),
                     lineWidth: 1
                 )

@@ -4,7 +4,6 @@ import SwiftData
 struct ScanView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Memo.dateImported, order: .reverse) private var allMemos: [Memo]
-    @Query private var persons: [Person]
     @State private var vm = ScanViewModel()
     @State private var importer = AudioImporter()
     @State private var importErrorMessage: String?
@@ -12,6 +11,32 @@ struct ScanView: View {
     let onOpenMemo: (Memo) -> Void
 
     private var filteredMemos: [Memo] { vm.filtered(allMemos) }
+
+    /// Speaker chips derived from the actual segments in current memos.
+    /// One chip per unique effective name (case-insensitive). Falls through
+    /// the Person table entirely — Person records may be stale or absent.
+    private var displayedSpeakers: [SpeakerChipModel] {
+        var byName: [String: SpeakerChipModel] = [:]
+        for memo in allMemos {
+            for seg in memo.transcript?.segments ?? [] {
+                guard let s = seg.speaker else { continue }
+                let key = s.effectiveName.lowercased()
+                if byName[key] == nil {
+                    byName[key] = SpeakerChipModel(
+                        name: s.effectiveName,
+                        colorHex: s.colorHex
+                    )
+                }
+            }
+        }
+        return byName.values.sorted { $0.name.lowercased() < $1.name.lowercased() }
+    }
+
+    struct SpeakerChipModel: Identifiable {
+        let name: String
+        let colorHex: String
+        var id: String { name.lowercased() }
+    }
 
     var body: some View {
         ZStack {
@@ -80,19 +105,20 @@ struct ScanView: View {
 
     private var filterBar: some View {
         VStack(spacing: 8) {
-            // Person chips
-            if !persons.isEmpty {
+            // Speaker chips — derived from segments in current memos
+            if !displayedSpeakers.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
-                        ForEach(persons) { person in
-                            TimbrePersonChip(
-                                person: person,
-                                isSelected: vm.selectedPersonIDs.contains(person.id)
+                        ForEach(displayedSpeakers) { speaker in
+                            TimbreColoredChip(
+                                label: speaker.name.lowercased(),
+                                colorHex: speaker.colorHex,
+                                isSelected: vm.selectedSpeakerNames.contains(speaker.id)
                             ) {
-                                if vm.selectedPersonIDs.contains(person.id) {
-                                    vm.selectedPersonIDs.remove(person.id)
+                                if vm.selectedSpeakerNames.contains(speaker.id) {
+                                    vm.selectedSpeakerNames.remove(speaker.id)
                                 } else {
-                                    vm.selectedPersonIDs.insert(person.id)
+                                    vm.selectedSpeakerNames.insert(speaker.id)
                                 }
                             }
                         }

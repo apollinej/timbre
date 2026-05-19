@@ -1,6 +1,8 @@
+import SwiftData
 import SwiftUI
 
 struct MemoSidePanel: View {
+    @Environment(\.modelContext) private var modelContext
     let memo: Memo
     let onClose: () -> Void
     let onPrevious: (() -> Void)?
@@ -8,11 +10,24 @@ struct MemoSidePanel: View {
     let onOpenAnalyze: () -> Void
 
     @State private var scrollTarget: String?
+    @State private var isAnalyzing = false
+    @State private var analysisError: String?
+    private let orchestrator = AnalysisOrchestrator()
 
-    private let sections = [
-        "metadata", "summary", "notes",
-        "open questions", "key decisions", "action items", "transcript",
-    ]
+    /// Only the sections that actually have anchors in the current view —
+    /// avoids jump-to-section landing on a missing ID when no analysis exists.
+    private var availableSections: [String] {
+        var s: [String] = ["metadata"]
+        if let analysis = memo.analysis {
+            if let summary = analysis.summary, !summary.isEmpty { s.append("summary") }
+            if let notes = analysis.detailedNotes, !notes.isEmpty { s.append("notes") }
+            if !analysis.openThreads.isEmpty { s.append("open questions") }
+            if !analysis.keyDecisions.isEmpty { s.append("key decisions") }
+            if !analysis.actionItems.isEmpty { s.append("action items") }
+        }
+        s.append("transcript")
+        return s
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -234,15 +249,106 @@ struct MemoSidePanel: View {
         .sectionCard()
     }
 
-    // MARK: - Play button
+    // MARK: - Action buttons
 
     private var playButton: some View {
-        HStack {
-            Spacer()
-            TimbrePill("play audio", style: .primary) { onOpenAnalyze() }
-            Spacer()
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Spacer()
+                TimbrePill("open in decode", style: .secondary) { onOpenAnalyze() }
+                analyzeButton
+                Spacer()
+            }
+
+            if let err = analysisError {
+                Text(err)
+                    .font(TimbreFont.font(size: 11))
+                    .foregroundStyle(Color(hex: "CC2040"))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 16)
+            }
         }
         .padding(.vertical, 8)
+    }
+
+    @ViewBuilder
+    private var analyzeButton: some View {
+        let label = memo.analysis == nil ? "analyze" : "re-analyze"
+        if isAnalyzing {
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("analyzing\u{2026}")
+                    .font(TimbreFont.fontBold(size: 12))
+                    .foregroundStyle(Color(hex: "0088FF"))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Capsule().fill(Color(hex: "E0F0FF")))
+        } else if memo.transcript != nil {
+            TimbrePill(label, style: .primary) {
+                Task { await runAnalysis() }
+            }
+        }
+    }
+
+    private func runAnalysis() async {
+        guard !isAnalyzing, let transcript = memo.transcript else { return }
+        isAnalyzing = true
+        analysisError = nil
+        defer { isAnalyzing = false }
+
+        let text = transcript.sortedSegments.map { seg in
+            let name = seg.speaker?.effectiveName ?? "Speaker"
+            return "[\(name)] (\(TimeFormatter.format(seg.startTime)))\n\(seg.text)"
+        }.joined(separator: "\n\n")
+
+        do {
+            let result = try await orchestrator.runFullAnalysis(
+                transcript: text,
+                title: memo.title,
+                duration: memo.duration,
+                date: memo.dateRecorded ?? memo.dateImported
+            )
+            writeAnalysis(result)
+        } catch {
+            analysisError = error.localizedDescription
+        }
+    }
+
+    private func writeAnalysis(_ result: FullAnalysisResult) {
+        let analysis = memo.analysis ?? MemoAnalysis(analysisModelUsed: "openai-gpt-4o")
+        analysis.summary = result.summary
+        analysis.detailedNotes = result.detailedNotes
+        analysis.dateAnalyzed = .now
+        analysis.analysisModelUsed = "openai-gpt-4o"
+        analysis.isStale = false
+
+        analysis.actionItems.forEach { modelContext.delete($0) }
+        analysis.openThreads.forEach { modelContext.delete($0) }
+        analysis.keyDecisions.forEach { modelContext.delete($0) }
+
+        analysis.actionItems = result.actionItems.map {
+            makeItem($0, type: "action")
+        }
+        analysis.openThreads = result.threads.map {
+            makeItem($0, type: "thread")
+        }
+        analysis.keyDecisions = result.decisions.map {
+            makeItem($0, type: "decision")
+        }
+
+        if memo.analysis == nil {
+            modelContext.insert(analysis)
+            memo.analysis = analysis
+        }
+        memo.status = .analyzed
+        try? modelContext.save()
+    }
+
+    private func makeItem(_ text: String, type: String) -> AnalysisItem {
+        let item = AnalysisItem(text: text, sourceMemoID: memo.id, itemType: type)
+        modelContext.insert(item)
+        return item
     }
 
     // MARK: - Section jumper (bottom bar)
@@ -280,9 +386,10 @@ struct MemoSidePanel: View {
             .buttonStyle(.plain)
             .popover(isPresented: $showJumpMenu) {
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(sections, id: \.self) { section in
+                    ForEach(availableSections, id: \.self) { section in
                         Button {
                             scrollTarget = section
+                            currentSectionIndex = availableSections.firstIndex(of: section) ?? 0
                             showJumpMenu = false
                         } label: {
                             Text(section)
@@ -316,6 +423,8 @@ struct MemoSidePanel: View {
     @State private var currentSectionIndex = 0
 
     private func jumpDirection(_ direction: Int) {
+        let sections = availableSections
+        guard !sections.isEmpty else { return }
         let newIndex = max(0, min(sections.count - 1, currentSectionIndex + direction))
         currentSectionIndex = newIndex
         scrollTarget = sections[newIndex]
