@@ -1,3 +1,4 @@
+import AppKit
 import SwiftData
 import SwiftUI
 
@@ -12,6 +13,9 @@ struct MemoSidePanel: View {
     @State private var scrollTarget: String?
     @State private var isAnalyzing = false
     @State private var analysisError: String?
+    @State private var showPasteSheet = false
+    @State private var pasteText = ""
+    @State private var infoToast: String?
     private let orchestrator = AnalysisOrchestrator()
 
     /// Only the sections that actually have anchors in the current view —
@@ -35,12 +39,12 @@ struct MemoSidePanel: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
+                        actionPanel
                         metadataSection.id("metadata")
                         if let analysis = memo.analysis {
                             analysisSection(analysis, proxy: proxy)
                         }
                         transcriptSection.id("transcript")
-                        playButton
                     }
                     .padding(16)
                 }
@@ -69,6 +73,21 @@ struct MemoSidePanel: View {
                 .frame(width: 1),
             alignment: .leading
         )
+        .sheet(isPresented: $showPasteSheet) {
+            pasteAnalysisSheet
+        }
+        .overlay(alignment: .top) {
+            if let text = infoToast {
+                Text(text)
+                    .font(TimbreFont.fontBold(size: 12))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Capsule().fill(Color(hex: "0088FF")))
+                    .foregroundStyle(.white)
+                    .padding(.top, 50)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
     }
 
     // MARK: - Header
@@ -249,31 +268,45 @@ struct MemoSidePanel: View {
         .sectionCard()
     }
 
-    // MARK: - Action buttons
+    // MARK: - Action panel (top)
 
-    private var playButton: some View {
-        VStack(spacing: 8) {
+    private var actionPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Spacer()
                 TimbrePill("open in decode", style: .secondary) { onOpenAnalyze() }
-                analyzeButton
                 Spacer()
             }
 
-            if let err = analysisError {
-                Text(err)
-                    .font(TimbreFont.font(size: 11))
-                    .foregroundStyle(Color(hex: "CC2040"))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 16)
+            if memo.transcript != nil {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("analyze")
+                        .font(TimbreFont.fontBold(size: 12))
+                        .foregroundStyle(Color(hex: "0088FF"))
+
+                    HStack(spacing: 8) {
+                        analyzeButton
+                        TimbrePill("copy prompt", style: .secondary) { copyPrompt() }
+                        TimbrePill("paste your own", style: .secondary) {
+                            pasteText = memo.analysis?.detailedNotes ?? ""
+                            showPasteSheet = true
+                        }
+                        Spacer()
+                    }
+                }
+
+                if let err = analysisError {
+                    Text(err)
+                        .font(TimbreFont.font(size: 11))
+                        .foregroundStyle(Color(hex: "CC2040"))
+                }
             }
         }
-        .padding(.vertical, 8)
+        .sectionCard()
     }
 
     @ViewBuilder
     private var analyzeButton: some View {
-        let label = memo.analysis == nil ? "analyze" : "re-analyze"
+        let label = memo.analysis == nil ? "with openai" : "re-analyze"
         if isAnalyzing {
             HStack(spacing: 6) {
                 ProgressView().controlSize(.small)
@@ -284,9 +317,92 @@ struct MemoSidePanel: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
             .background(Capsule().fill(Color(hex: "E0F0FF")))
-        } else if memo.transcript != nil {
+        } else {
             TimbrePill(label, style: .primary) {
                 Task { await runAnalysis() }
+            }
+        }
+    }
+
+    // MARK: - Paste-your-own analysis
+
+    private var pasteAnalysisSheet: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("paste your analysis")
+                    .font(TimbreFont.fontBold(size: 16))
+                    .foregroundStyle(Color(hex: "044060"))
+                Spacer()
+                Button { showPasteSheet = false } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(Color(hex: "0088C8"))
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut(.escape, modifiers: [])
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+
+            Text("copy the prompt, paste it into chatgpt or claude, then paste the response below — it will appear as the notes for this memo.")
+                .font(TimbreFont.font(size: 12))
+                .foregroundStyle(Color(hex: "2090C8"))
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+
+            TextEditor(text: $pasteText)
+                .font(.system(size: 13, design: .monospaced))
+                .padding(8)
+                .background(Color.white.opacity(0.5))
+                .frame(minHeight: 280)
+                .padding(.horizontal, 16)
+
+            HStack {
+                Spacer()
+                TimbrePill("save", style: .primary) { savePastedAnalysis() }
+            }
+            .padding(16)
+        }
+        .frame(width: 560, height: 480)
+        .background(Theme.iridescentSubtle)
+    }
+
+    private func copyPrompt() {
+        guard let prompt = AnalysisPromptBuilder.manualPrompt(for: memo) else {
+            analysisError = "no transcript to build prompt from"
+            return
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(prompt, forType: .string)
+        showToast("prompt copied — paste into chatgpt or claude")
+    }
+
+    private func savePastedAnalysis() {
+        let trimmed = pasteText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { showPasteSheet = false; return }
+
+        let analysis = memo.analysis ?? MemoAnalysis(analysisModelUsed: "manual-paste")
+        analysis.detailedNotes = trimmed
+        analysis.dateAnalyzed = .now
+        analysis.analysisModelUsed = "manual-paste"
+        analysis.isStale = false
+
+        if memo.analysis == nil {
+            modelContext.insert(analysis)
+            memo.analysis = analysis
+        }
+        memo.status = .analyzed
+        try? modelContext.save()
+        showPasteSheet = false
+        showToast("analysis saved")
+    }
+
+    private func showToast(_ text: String) {
+        withAnimation { infoToast = text }
+        Task {
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            await MainActor.run {
+                withAnimation { infoToast = nil }
             }
         }
     }

@@ -87,4 +87,51 @@ enum AnalysisPromptBuilder {
         \(transcript)
         """
     }
+
+    /// Self-contained prompt the user can paste into any LLM
+    /// (ChatGPT, Claude, etc.) without an API key. Output is structured
+    /// markdown the user can paste back via "paste your own".
+    static func manualPrompt(for memo: Memo) -> String? {
+        guard let transcript = memo.transcript else { return nil }
+        let transcriptText = transcript.sortedSegments.map { seg in
+            let name = seg.speaker?.effectiveName ?? "Speaker"
+            return "[\(name)] (\(TimeFormatter.format(seg.startTime)))\n\(seg.text)"
+        }.joined(separator: "\n\n")
+
+        return """
+        You are a senior consultant producing structured meeting documentation. Analyze this transcript and produce executive-quality notes.
+
+        ## Output Format (paste this back into timbre exactly as-is)
+
+        ### Executive Summary
+        2-3 sentences. Lead with the most important outcome.
+
+        ### Detailed Notes
+        Organized by topic, not chronologically. For each topic:
+        - **Topic heading** in bold
+        - What was discussed, with attribution to speakers
+        - Any specifics, numbers, data points
+        - Implied context
+
+        ### Key Decisions
+        - One decision per bullet
+        - Include who decided and why
+
+        ### Action Items
+        - Owner: action — deadline (if mentioned)
+
+        ### Open Questions
+        - Items raised but not resolved
+
+        ---
+
+        **Meeting:** \(memo.title)
+        **Duration:** \(memo.formattedDuration)
+        **Date:** \(memo.displayDate.formatted(date: .long, time: .shortened))
+
+        **Transcript:**
+
+        \(transcriptText)
+        """
+    }
 }
