@@ -217,10 +217,10 @@ struct ScanView: View {
     private var emptyState: some View {
         VStack(spacing: 10) {
             Spacer()
-            Text("no analyzed memos yet")
+            Text(allMemos.isEmpty ? "no memos yet" : "no matches")
                 .font(TimbreFont.fontBold(size: 16))
                 .foregroundStyle(Color(hex: "044060"))
-            Text("run prompt on a memo in analyze first")
+            Text(allMemos.isEmpty ? "record or import a voice memo to get started" : "try clearing filters or widening the time range")
                 .font(Theme.captionFont)
                 .foregroundStyle(Color(hex: "2090C8"))
             Spacer()
