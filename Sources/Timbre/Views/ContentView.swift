@@ -270,14 +270,10 @@ struct ContentView: View {
     }
 
     private func openImportPanel() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = true
-        panel.canChooseDirectories = false
-        panel.allowedContentTypes = AudioImporter.supportedTypes
-        if let p = AudioImporter.voiceMemosPath { panel.directoryURL = p }
-        guard panel.runModal() == .OK else { return }
+        let urls = AudioImporter.presentImportPanel()
+        guard !urls.isEmpty else { return }
         Task {
-            let imported = await importer.importFiles(panel.urls, into: modelContext)
+            let imported = await importer.importFiles(urls, into: modelContext)
             if let first = imported.first {
                 selectedMemo = first
                 importErrorMessage = nil

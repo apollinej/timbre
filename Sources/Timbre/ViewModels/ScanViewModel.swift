@@ -38,8 +38,9 @@ final class ScanViewModel {
     func filtered(_ memos: [Memo]) -> [Memo] {
         var result = memos
 
-        // Only show analyzed memos
-        result = result.filter { $0.analysis != nil }
+        // Browse is the database view — every memo (recording) appears here
+        // regardless of analysis state. Analysis is a derived layer surfaced
+        // in Debrief, not a gate on visibility.
 
         // Time filter
         if timeFilter != .all {

@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftData
 import UniformTypeIdentifiers
@@ -6,6 +7,19 @@ import UniformTypeIdentifiers
 final class AudioImporter {
     var isImporting = false
     var lastError: String?
+
+    /// Show the system file picker pre-pointed at Apple's Voice Memos folder
+    /// and return the URLs the user selected. Empty array if canceled.
+    @MainActor
+    static func presentImportPanel() -> [URL] {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = AudioImporter.supportedTypes
+        if let p = AudioImporter.voiceMemosPath { panel.directoryURL = p }
+        guard panel.runModal() == .OK else { return [] }
+        return panel.urls
+    }
 
     static let voiceMemosPath: URL? = {
         let home = FileManager.default.homeDirectoryForCurrentUser

@@ -27,9 +27,31 @@ struct ThreadsView: View {
             VStack(spacing: 0) {
                 headerBanner
                 filterBar
-                columns
+                if allItems.isEmpty {
+                    overallEmptyState
+                } else {
+                    columns
+                }
             }
         }
+    }
+
+    private var overallEmptyState: some View {
+        VStack(spacing: 10) {
+            Spacer()
+            Text(memos.isEmpty ? "no memos yet" : "no analysis yet")
+                .font(TimbreFont.fontBold(size: 16))
+                .foregroundStyle(Color(hex: "044060"))
+            Text(memos.isEmpty
+                 ? "record or import a voice memo to get started"
+                 : "open a memo in decode and click prompt to extract questions, decisions, and action items")
+                .font(Theme.captionFont)
+                .foregroundStyle(Color(hex: "2090C8"))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var background: some View {

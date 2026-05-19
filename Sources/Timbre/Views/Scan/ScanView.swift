@@ -6,6 +6,8 @@ struct ScanView: View {
     @Query(sort: \Memo.dateImported, order: .reverse) private var allMemos: [Memo]
     @Query private var persons: [Person]
     @State private var vm = ScanViewModel()
+    @State private var importer = AudioImporter()
+    @State private var importErrorMessage: String?
     let onGoHome: () -> Void
     let onOpenMemo: (Memo) -> Void
 
@@ -21,6 +23,14 @@ struct ScanView: View {
                 viewModeAndSortBar
                 mainContent
             }
+        }
+        .alert("import failed", isPresented: Binding(
+            get: { importErrorMessage != nil },
+            set: { if !$0 { importErrorMessage = nil } }
+        )) {
+            Button("ok", role: .cancel) { importErrorMessage = nil }
+        } message: {
+            Text(importErrorMessage ?? "")
         }
     }
 
@@ -42,11 +52,28 @@ struct ScanView: View {
                 .font(TimbreFont.fontBold(size: 22))
                 .foregroundStyle(Color(hex: "004878"))
             HStack {
+                BubbleButton(icon: "plus", size: 32, color: Color(hex: "0088FF")) {
+                    importFiles()
+                }
+                .padding(.leading, 12)
                 Spacer()
                 HomeButton(action: onGoHome).padding(.trailing, 12)
             }
         }
         .frame(height: 48)
+    }
+
+    private func importFiles() {
+        let urls = AudioImporter.presentImportPanel()
+        guard !urls.isEmpty else { return }
+        Task {
+            let imported = await importer.importFiles(urls, into: modelContext)
+            if imported.isEmpty, let err = importer.lastError {
+                importErrorMessage = err
+            } else {
+                importErrorMessage = nil
+            }
+        }
     }
 
     // MARK: - Filters

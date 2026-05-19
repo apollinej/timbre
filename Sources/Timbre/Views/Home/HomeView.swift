@@ -1,6 +1,10 @@
+import SwiftData
 import SwiftUI
 
 struct HomeView: View {
+    @Environment(\.modelContext) private var modelContext
+    @State private var importer = AudioImporter()
+    @State private var importErrorMessage: String?
     let onNavigate: (NavigationRouter.Route) -> Void
 
     var body: some View {
@@ -26,10 +30,15 @@ struct HomeView: View {
                 }
             }
 
-            // Me button — bottom right
+            // Bottom corner bubbles — import (left), me (right)
             VStack {
                 Spacer()
                 HStack {
+                    BubbleButton(
+                        icon: "plus",
+                        size: 36,
+                        color: Color(hex: "0088FF")
+                    ) { importFiles() }
                     Spacer()
                     BubbleButton(
                         icon: "person.crop.circle.fill",
@@ -39,6 +48,27 @@ struct HomeView: View {
                 }
             }
             .padding(20)
+        }
+        .alert("import failed", isPresented: Binding(
+            get: { importErrorMessage != nil },
+            set: { if !$0 { importErrorMessage = nil } }
+        )) {
+            Button("ok", role: .cancel) { importErrorMessage = nil }
+        } message: {
+            Text(importErrorMessage ?? "")
+        }
+    }
+
+    private func importFiles() {
+        let urls = AudioImporter.presentImportPanel()
+        guard !urls.isEmpty else { return }
+        Task {
+            let imported = await importer.importFiles(urls, into: modelContext)
+            if imported.isEmpty, let err = importer.lastError {
+                importErrorMessage = err
+            } else if !imported.isEmpty {
+                onNavigate(.scan)
+            }
         }
     }
 
