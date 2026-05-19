@@ -1,20 +1,35 @@
 # timbre
 
-Local voice memo transcription with speaker diarization. No cloud, no API keys, no subscriptions.
+Local voice memo transcription with speaker diarization. Transcription runs fully on-device — no cloud, no accounts, no subscriptions. Optional GPT-4o analysis is opt-in and uses your own OpenAI key (stored in macOS Keychain).
 
-Drop in a voice recording and get a clean, speaker-attributed transcript. Everything runs on-device using [WhisperKit](https://github.com/argmaxinc/WhisperKit) (CoreML Whisper on Apple Neural Engine) and [SpeakerKit](https://github.com/argmaxinc/WhisperKit) (on-device pyannote diarization).
+Drop in a voice recording (or record one directly) and get a clean, speaker-attributed transcript. Transcription uses [WhisperKit](https://github.com/argmaxinc/WhisperKit) (CoreML Whisper on Apple Neural Engine) and [SpeakerKit](https://github.com/argmaxinc/WhisperKit) (on-device pyannote diarization).
+
+## Status
+
+**v0.1.0** — pre-1.0 while features stabilize.
+
+| Surface | State |
+|---|---|
+| Import + transcribe + diarize | stable |
+| Record directly in-app | restored in 0.1.0 — please report bugs |
+| Browse (filter / search / calendar / cards) | restored in 0.1.0 — please report bugs |
+| Threads (open conversations) | stable |
+| Settings (transcription model, storage) | stable |
+| Analysis (GPT-4o decode) | requires your own OpenAI key |
 
 ## Features
 
+- **Record in-app** — capture audio directly without leaving timbre
 - **Speaker diarization** — automatically identifies and labels different speakers
 - **Click-to-seek** — click any transcript segment or the waveform to jump to that point
 - **Live highlight** — current segment highlights as audio plays
 - **Speaker rename** — rename "Speaker 1" to actual names, applied globally
+- **Browse** — search, filter by person/time, card / list / calendar views
 - **Copy transcript** — one click to copy the full transcript to clipboard
 - **Folder organization** — create folders, rename files, drag to organize
 - **Export** — Markdown, plain text, SRT subtitles, JSON
 - **Multiple models** — tiny, base, small, large-v3 (auto-downloaded on first use)
-- **Fully local** — no network requests, no accounts, no telemetry
+- **Local-first** — transcription never leaves your device; analysis is opt-in
 
 ## Requirements
 
@@ -89,6 +104,10 @@ By default, files are stored in `~/Documents/Timbre/`. You can change this in Se
 - **SwiftData** — local persistence
 - **AVFoundation** — audio playback and waveform extraction
 
+## Contributing
+
+Issues and pull requests welcome at [github.com/apollinej/apolline-production](https://github.com/apollinej/apolline-production). For bugs, please include macOS version, the surface you were on (record / browse / etc.), and steps to reproduce.
+
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
