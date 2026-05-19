@@ -18,19 +18,10 @@ struct MemoSidePanel: View {
     @State private var infoToast: String?
     private let orchestrator = AnalysisOrchestrator()
 
-    /// Only the sections that actually have anchors in the current view —
-    /// avoids jump-to-section landing on a missing ID when no analysis exists.
+    /// All cards render unconditionally now (empty cards show a prompt button),
+    /// so every section is always a valid jump target.
     private var availableSections: [String] {
-        var s: [String] = ["metadata"]
-        if let analysis = memo.analysis {
-            if let summary = analysis.summary, !summary.isEmpty { s.append("summary") }
-            if let notes = analysis.detailedNotes, !notes.isEmpty { s.append("notes") }
-            if !analysis.openThreads.isEmpty { s.append("open questions") }
-            if !analysis.keyDecisions.isEmpty { s.append("key decisions") }
-            if !analysis.actionItems.isEmpty { s.append("action items") }
-        }
-        s.append("transcript")
-        return s
+        ["metadata", "summary", "notes", "key decisions", "action items", "open questions", "transcript"]
     }
 
     var body: some View {
@@ -39,11 +30,12 @@ struct MemoSidePanel: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
-                        actionPanel
-                        metadataSection.id("metadata")
-                        if let analysis = memo.analysis {
-                            analysisSection(analysis, proxy: proxy)
-                        }
+                        titleCard.id("metadata")
+                        summaryCard.id("summary")
+                        notesCard.id("notes")
+                        decisionsCard.id("key decisions")
+                        actionItemsCard.id("action items")
+                        questionsCard.id("open questions")
                         transcriptSection.id("transcript")
                     }
                     .padding(16)
@@ -121,6 +113,14 @@ struct MemoSidePanel: View {
                     .buttonStyle(.plain)
                 }
 
+                Button { onOpenAnalyze() } label: {
+                    Image(systemName: "arrow.up.forward.app.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color(hex: "0088C8"))
+                }
+                .buttonStyle(.plain)
+                .help("open in decode")
+
                 Button { onClose() } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 16))
@@ -133,20 +133,25 @@ struct MemoSidePanel: View {
         .frame(height: 42)
     }
 
-    // MARK: - Metadata
+    // MARK: - Title card (first card: title + metadata)
 
-    private var metadataSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+    private var titleCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(memo.title)
+                .font(TimbreFont.fontBold(size: 18))
+                .foregroundStyle(Color(hex: "044060"))
+                .lineLimit(3)
+
             HStack(spacing: 8) {
                 Image(systemName: "calendar")
-                    .font(.system(size: 13))
+                    .font(.system(size: 12))
                     .foregroundStyle(Color(hex: "0088C8"))
                 Text(memo.displayDate.formatted(date: .long, time: .shortened))
-                    .font(TimbreFont.font(size: 14))
+                    .font(TimbreFont.font(size: 13))
                     .foregroundStyle(Color(hex: "044060"))
                 Spacer()
                 Text(memo.formattedDuration)
-                    .font(TimbreFont.fontBold(size: 14))
+                    .font(TimbreFont.fontBold(size: 13))
                     .foregroundStyle(Color(hex: "0088C8"))
             }
 
@@ -171,52 +176,101 @@ struct MemoSidePanel: View {
         .sectionCard()
     }
 
-    // MARK: - Analysis
+    // MARK: - Analysis cards (always rendered; empty cards show a prompt button)
 
-    private func analysisSection(
-        _ analysis: MemoAnalysis,
-        proxy: ScrollViewProxy
-    ) -> some View {
-        Group {
-            if let s = analysis.summary, !s.isEmpty {
-                textBlock("summary", content: s).id("summary")
-            }
-            if let n = analysis.detailedNotes, !n.isEmpty {
-                textBlock("notes", content: n).id("notes")
-            }
-            if !analysis.openThreads.isEmpty {
-                itemBlock("open questions", items: analysis.openThreads)
-                    .id("open questions")
-            }
-            if !analysis.keyDecisions.isEmpty {
-                itemBlock("key decisions", items: analysis.keyDecisions)
-                    .id("key decisions")
-            }
-            if !analysis.actionItems.isEmpty {
-                itemBlock("action items", items: analysis.actionItems)
-                    .id("action items")
-            }
-        }
-    }
-
-    private func textBlock(_ title: String, content: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(TimbreFont.fontBold(size: 15))
-                .foregroundStyle(Color(hex: "0088FF"))
-            Text(content)
+    private var summaryCard: some View {
+        analysisCard(title: "summary", isEmpty: (memo.analysis?.summary ?? "").isEmpty) {
+            Text(memo.analysis?.summary ?? "")
                 .font(Theme.bodyFont)
                 .foregroundStyle(Color(hex: "043050"))
                 .textSelection(.enabled)
         }
-        .sectionCard()
     }
 
-    private func itemBlock(_ title: String, items: [AnalysisItem]) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+    private var notesCard: some View {
+        analysisCard(title: "notes", isEmpty: (memo.analysis?.detailedNotes ?? "").isEmpty) {
+            Text(memo.analysis?.detailedNotes ?? "")
+                .font(Theme.bodyFont)
+                .foregroundStyle(Color(hex: "043050"))
+                .textSelection(.enabled)
+        }
+    }
+
+    private var decisionsCard: some View {
+        analysisCard(
+            title: "key decisions",
+            isEmpty: (memo.analysis?.keyDecisions ?? []).isEmpty
+        ) {
+            itemList(memo.analysis?.keyDecisions ?? [])
+        }
+    }
+
+    private var actionItemsCard: some View {
+        analysisCard(
+            title: "action items",
+            isEmpty: (memo.analysis?.actionItems ?? []).isEmpty
+        ) {
+            itemList(memo.analysis?.actionItems ?? [])
+        }
+    }
+
+    private var questionsCard: some View {
+        analysisCard(
+            title: "open questions",
+            isEmpty: (memo.analysis?.openThreads ?? []).isEmpty
+        ) {
+            itemList(memo.analysis?.openThreads ?? [])
+        }
+    }
+
+    @ViewBuilder
+    private func analysisCard<Content: View>(
+        title: String,
+        isEmpty: Bool,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(TimbreFont.fontBold(size: 15))
                 .foregroundStyle(Color(hex: "0088FF"))
+            if isEmpty {
+                promptButton
+            } else {
+                content()
+            }
+        }
+        .sectionCard()
+    }
+
+    private var promptButton: some View {
+        Button { requestAnalysis() } label: {
+            HStack(spacing: 5) {
+                if isAnalyzing {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 12))
+                }
+                Text(isAnalyzing ? "analyzing\u{2026}" : "prompt")
+                    .font(TimbreFont.fontBold(size: 12))
+            }
+            .foregroundStyle(isAnalyzing ? Color(hex: "0088FF") : .white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                Capsule().fill(
+                    isAnalyzing
+                        ? Color(hex: "E0F0FF")
+                        : Color(hex: "0088FF")
+                )
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isAnalyzing)
+    }
+
+    private func itemList(_ items: [AnalysisItem]) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
             ForEach(items) { item in
                 HStack(alignment: .top, spacing: 6) {
                     Circle()
@@ -229,7 +283,6 @@ struct MemoSidePanel: View {
                 }
             }
         }
-        .sectionCard()
     }
 
     // MARK: - Transcript
@@ -268,59 +321,21 @@ struct MemoSidePanel: View {
         .sectionCard()
     }
 
-    // MARK: - Action panel (top)
+    // MARK: - Analysis trigger (single smart entry point)
 
-    private var actionPanel: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                TimbrePill("open in decode", style: .secondary) { onOpenAnalyze() }
-                Spacer()
-            }
-
-            if memo.transcript != nil {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("analyze")
-                        .font(TimbreFont.fontBold(size: 12))
-                        .foregroundStyle(Color(hex: "0088FF"))
-
-                    HStack(spacing: 8) {
-                        analyzeButton
-                        TimbrePill("copy prompt", style: .secondary) { copyPrompt() }
-                        TimbrePill("paste your own", style: .secondary) {
-                            pasteText = memo.analysis?.detailedNotes ?? ""
-                            showPasteSheet = true
-                        }
-                        Spacer()
-                    }
-                }
-
-                if let err = analysisError {
-                    Text(err)
-                        .font(TimbreFont.font(size: 11))
-                        .foregroundStyle(Color(hex: "CC2040"))
-                }
-            }
-        }
-        .sectionCard()
-    }
-
-    @ViewBuilder
-    private var analyzeButton: some View {
-        let label = memo.analysis == nil ? "with openai" : "re-analyze"
-        if isAnalyzing {
-            HStack(spacing: 6) {
-                ProgressView().controlSize(.small)
-                Text("analyzing\u{2026}")
-                    .font(TimbreFont.fontBold(size: 12))
-                    .foregroundStyle(Color(hex: "0088FF"))
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(Capsule().fill(Color(hex: "E0F0FF")))
+    /// One button → two paths:
+    /// - If OpenAI key is set in Keychain, run the API analysis directly.
+    /// - If not, copy the manual prompt to clipboard and open the paste sheet
+    ///   so the user can run it in their own LLM and paste the result back.
+    private func requestAnalysis() {
+        let key = (KeychainService.read(key: "openai-api-key") ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if !key.isEmpty {
+            Task { await runAnalysis() }
         } else {
-            TimbrePill(label, style: .primary) {
-                Task { await runAnalysis() }
-            }
+            copyPrompt()
+            pasteText = memo.analysis?.detailedNotes ?? ""
+            showPasteSheet = true
         }
     }
 
@@ -426,8 +441,10 @@ struct MemoSidePanel: View {
                 date: memo.dateRecorded ?? memo.dateImported
             )
             writeAnalysis(result)
+            showToast("analysis saved")
         } catch {
             analysisError = error.localizedDescription
+            showToast(error.localizedDescription)
         }
     }
 

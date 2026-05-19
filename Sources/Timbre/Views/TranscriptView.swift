@@ -41,6 +41,9 @@ struct TranscriptView: View {
     @State private var editingBlockIndex: Int?
     @State private var editText = ""
     @State private var isEditMode = false
+    @State private var showPasteSheet = false
+    @State private var pasteText = ""
+    private let orchestrator = AnalysisOrchestrator()
 
     private var selectedModel: WhisperModel {
         WhisperModel(rawValue: selectedModelRaw) ?? .baseEn
@@ -73,7 +76,7 @@ struct TranscriptView: View {
                             showFindReplace.toggle()
                         }
                         headerPill(icon: "sparkles", label: "prompt") {
-                            generateSummaryPrompt()
+                            requestAnalysis()
                         }
                         headerPill(icon: "square.and.arrow.up", label: "export") {
                             exportTranscript()
@@ -194,6 +197,50 @@ struct TranscriptView: View {
                 TranscriptDiskExport.syncAllMemos(modelContext: modelContext)
             }
         }
+        .sheet(isPresented: $showPasteSheet) {
+            pasteAnalysisSheet
+        }
+    }
+
+    private var pasteAnalysisSheet: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("paste your analysis")
+                    .font(TimbreFont.fontBold(size: 16))
+                    .foregroundStyle(Color(hex: "044060"))
+                Spacer()
+                Button { showPasteSheet = false } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(Color(hex: "0088C8"))
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut(.escape, modifiers: [])
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+
+            Text("the prompt is already on your clipboard. paste it into chatgpt or claude, then paste the response below.")
+                .font(TimbreFont.font(size: 12))
+                .foregroundStyle(Color(hex: "2090C8"))
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+
+            TextEditor(text: $pasteText)
+                .font(.system(size: 13, design: .monospaced))
+                .padding(8)
+                .background(Color.white.opacity(0.5))
+                .frame(minHeight: 280)
+                .padding(.horizontal, 16)
+
+            HStack {
+                Spacer()
+                TimbrePill("save", style: .primary) { savePastedAnalysis() }
+            }
+            .padding(16)
+        }
+        .frame(width: 560, height: 480)
+        .background(Theme.iridescentSubtle)
     }
 
     // MARK: - Ready to Transcribe
@@ -442,60 +489,47 @@ struct TranscriptView: View {
         try? content.write(to: finalURL, atomically: true, encoding: .utf8)
     }
 
-    private func generateSummaryPrompt() {
-        guard let transcript = memo.transcript else { return }
-        let merged = mergeSegments(transcript.sortedSegments)
-        let transcriptText = merged.map { block in
-            let name = block.speaker?.effectiveName ?? "Speaker"
-            return "[\(name)] (\(TimeFormatter.format(block.startTime)))\n\(block.text)"
-        }.joined(separator: "\n\n")
+    /// Single entry: if OpenAI key is set, run the API. If not, copy the
+    /// prompt to clipboard and open the paste sheet so the user can run
+    /// it in their own LLM and paste the result back.
+    private func requestAnalysis() {
+        let key = (KeychainService.read(key: "openai-api-key") ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if !key.isEmpty {
+            Task { await viewModel.runAnalysis(memo: memo, context: modelContext) }
+            showToast("analyzing\u{2026}")
+        } else {
+            copyManualPrompt()
+            pasteText = memo.analysis?.detailedNotes ?? ""
+            showPasteSheet = true
+        }
+    }
 
-        let prompt = """
-        You are a senior McKinsey consultant producing meeting documentation. Analyze this transcript and produce structured, executive-quality meeting notes.
-
-        ## Output Format
-
-        ### Executive Summary
-        2-3 sentences. Lead with the most important outcome or decision. Written so someone who wasn't in the meeting understands what happened and why it matters.
-
-        ### Detailed Notes
-        Organized by topic (not chronologically). For each topic:
-        - **Topic heading** in bold
-        - What was discussed, with attribution to speakers
-        - Any data points, numbers, or specifics mentioned
-        - Context that was implied but not stated explicitly
-
-        ### Key Decisions
-        Bulleted list. Each decision should include:
-        - What was decided
-        - Who made/drove the decision
-        - Reasoning or context behind it
-        - Any dissent or caveats noted
-
-        ### Action Items
-        Table format: | Owner | Action | Deadline (if mentioned) | Context |
-        Be specific. "Follow up on X" is not enough — include what specifically needs to happen.
-
-        ### Open Questions & Follow-ups
-        Items that were raised but not resolved. Flag which are blocking vs. nice-to-have.
-
-        ### Strategic Observations
-        2-3 bullets on what was NOT said but probably should have been discussed, risks that were glossed over, or assumptions that weren't challenged. This is your consultant value-add.
-
-        ---
-
-        **Meeting:** \(memo.title)
-        **Duration:** \(memo.formattedDuration)
-        **Date:** \(memo.displayDate.formatted(date: .long, time: .shortened))
-
-        **Transcript:**
-
-        \(transcriptText)
-        """
-
+    private func copyManualPrompt() {
+        guard let prompt = AnalysisPromptBuilder.manualPrompt(for: memo) else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(prompt, forType: .string)
         showToast("prompt copied — paste into your favorite llm")
+    }
+
+    private func savePastedAnalysis() {
+        let trimmed = pasteText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { showPasteSheet = false; return }
+
+        let analysis = memo.analysis ?? MemoAnalysis(analysisModelUsed: "manual-paste")
+        analysis.detailedNotes = trimmed
+        analysis.dateAnalyzed = .now
+        analysis.analysisModelUsed = "manual-paste"
+        analysis.isStale = false
+
+        if memo.analysis == nil {
+            modelContext.insert(analysis)
+            memo.analysis = analysis
+        }
+        memo.status = .analyzed
+        try? modelContext.save()
+        showPasteSheet = false
+        showToast("analysis saved")
     }
 
     private func findAndReplaceAll() {
