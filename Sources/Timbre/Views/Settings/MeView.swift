@@ -115,11 +115,15 @@ struct MeView: View {
                     .font(TimbreFont.fontBold(size: 14))
                     .foregroundStyle(Color(hex: "044060"))
                 Spacer()
-                Text("v3.0")
+                Text("v\(appVersion)")
                     .font(TimbreFont.font(size: 14))
                     .foregroundStyle(Color(hex: "2090C8"))
             }
         }
+    }
+
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
     }
 
     private func sectionCard<Content: View>(

@@ -19,6 +19,14 @@ ICON_FILE="timbre icon.png"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# Read semver from VERSION file (single source of truth).
+# Falls back to 0.0.0 if missing — a real release should always have one.
+if [[ -f "$SCRIPT_DIR/VERSION" ]]; then
+    APP_VERSION="$(cat "$SCRIPT_DIR/VERSION" | tr -d '[:space:]')"
+else
+    APP_VERSION="0.0.0"
+fi
+
 BUILD_CONFIG="debug"
 INSTALL=false
 if [[ "${1:-}" == "release" ]]; then
@@ -75,9 +83,9 @@ cat > "$APP_DIR/Contents/Info.plist" << PLIST
     <key>CFBundleDisplayName</key>
     <string>$DISPLAY_NAME</string>
     <key>CFBundleVersion</key>
-    <string>1.0</string>
+    <string>$APP_VERSION</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>$APP_VERSION</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleIconFile</key>
