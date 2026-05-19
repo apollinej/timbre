@@ -15,6 +15,7 @@ struct ContentView: View {
     @State private var didSyncTranscriptExports = false
     @State private var importErrorMessage: String?
     @State private var showSettings = false
+    @State private var showMe = false
 
     var body: some View {
         Group {
@@ -60,6 +61,15 @@ struct ContentView: View {
         .sheet(isPresented: $showSettings) {
             SettingsView()
         }
+        .sheet(isPresented: $showMe) {
+            MeView()
+        }
+        .onChange(of: router.activeRoute) { _, newRoute in
+            if case .me = newRoute {
+                showMe = true
+                router.goHome()
+            }
+        }
     }
 
     // MARK: - Layout Variants
@@ -89,6 +99,22 @@ struct ContentView: View {
             switch router.activeRoute {
             case .home:
                 HomeView { route in router.navigate(to: route) }
+            case .record:
+                RecordView(
+                    onGoHome: { router.goHome() },
+                    onAnalyze: { memo in
+                        selectedMemo = memo
+                        router.navigate(to: .memo(memo))
+                    }
+                )
+            case .scan:
+                ScanView(
+                    onGoHome: { router.goHome() },
+                    onOpenMemo: { memo in
+                        selectedMemo = memo
+                        router.navigate(to: .memo(memo))
+                    }
+                )
             case .threads:
                 ThreadsView(
                     onGoHome: { router.goHome() },
@@ -98,7 +124,8 @@ struct ContentView: View {
                     }
                 )
             default:
-                // record / scan / me — not implemented yet, fall back to analyze
+                // .me is intercepted by .onChange above and shown as a sheet;
+                // analyze/memo use sidebarLayout. Any unexpected route falls back here.
                 analyzeComingSoon
             }
         }
