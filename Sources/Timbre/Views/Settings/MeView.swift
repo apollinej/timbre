@@ -181,38 +181,36 @@ struct MeView: View {
 
         // 1. Un-analyzed — to demo the empty cards and prompt button
         seedMemo(
-            title: "investor meeting prep",
-            date: daysAgo(1, hour: 20, minute: 32),
-            duration: 27 * 60 + 14,
+            title: "tuesday standup",
+            date: daysAgo(1, hour: 9, minute: 30),
+            duration: 18 * 60 + 22,
             analysisMarkdown: nil
         )
 
         // 2. Full analysis, no resolutions yet — to demo fresh Debrief items
         seedMemo(
-            title: "y2k research session",
+            title: "product planning",
             date: daysAgo(5, hour: 15, minute: 0),
-            duration: 83 * 60 + 45,
-            analysisMarkdown: Self.demo_y2kResearch
+            duration: 47 * 60 + 12,
+            analysisMarkdown: Self.demo_productPlanning
         )
 
         // 3. Partial resolutions — some answered, some pending
-        let designCrit = seedMemo(
-            title: "design crit with idan",
+        let review = seedMemo(
+            title: "design review",
             date: daysAgo(8, hour: 11, minute: 0),
-            duration: 42 * 60 + 30,
-            analysisMarkdown: Self.demo_designCrit
+            duration: 32 * 60 + 30,
+            analysisMarkdown: Self.demo_designReview
         )
-        if let memo = designCrit, let analysis = memo.analysis {
-            // Answer the first open thread + first decision
+        if let memo = review, let analysis = memo.analysis {
             if let t = analysis.openThreads.first {
-                t.resolution = "decided the pixel-grid alignment matters more than the gradient — idan was right, polish ships."
+                t.resolution = "decided the simpler layout reads better — shipped friday with no regressions."
                 t.isResolved = true
             }
             if let d = analysis.keyDecisions.first {
-                d.resolution = "shipped friday after the speaker-rename merged. no regressions reported."
+                d.resolution = "rolled out behind the new-ui feature flag, off by default."
                 d.isResolved = true
             }
-            // Complete the first action
             if let a = analysis.actionItems.first {
                 a.isResolved = true
             }
@@ -222,22 +220,22 @@ struct MeView: View {
 
         // 4. Everything completed — all green tags, .md has > quote resolutions
         let kickoff = seedMemo(
-            title: "a16z application kickoff",
+            title: "quarterly kickoff",
             date: daysAgo(10, hour: 16, minute: 15),
-            duration: 74 * 60 + 0,
-            analysisMarkdown: Self.demo_a16zKickoff
+            duration: 54 * 60 + 0,
+            analysisMarkdown: Self.demo_quarterlyKickoff
         )
         if let memo = kickoff, let analysis = memo.analysis {
             for (i, t) in analysis.openThreads.enumerated() {
-                t.resolution = ["framed as the cultural shift, not the tool — clearer.",
-                                "interview-first, video later. apolline lead.",
-                                "named two specific labels in the draft."][safe: i] ?? "resolved."
+                t.resolution = ["agreed to scope down to two pillars instead of four.",
+                                "decided to start with onboarding before the retention work.",
+                                "no — we'll publish the roadmap externally after the launch."][safe: i] ?? "resolved."
                 t.isResolved = true
             }
             for (i, d) in analysis.keyDecisions.enumerated() {
-                d.resolution = ["shipped the kickoff memo internally before drafting.",
-                                "deferred polish until after the first read-through.",
-                                "set a hard deadline for the application: this friday."][safe: i] ?? "done."
+                d.resolution = ["shared the kickoff doc with the team before friday.",
+                                "deferred the rebrand until after the next milestone.",
+                                "set a hard deadline for the launch: end of next month."][safe: i] ?? "done."
                 d.isResolved = true
             }
             for a in analysis.actionItems { a.isResolved = true }
@@ -247,10 +245,10 @@ struct MeView: View {
 
         // 5. Summary + notes only, no items — to demo varied analysis shapes
         seedMemo(
-            title: "founder coffee with maya",
-            date: daysAgo(13, hour: 9, minute: 30),
-            duration: 18 * 60 + 22,
-            analysisMarkdown: Self.demo_founderCoffee
+            title: "1:1 with manager",
+            date: daysAgo(13, hour: 14, minute: 0),
+            duration: 22 * 60 + 8,
+            analysisMarkdown: Self.demo_oneOnOne
         )
 
         seedToast = "5 demo memos added — check browse + debrief"
@@ -339,114 +337,113 @@ struct MeView: View {
         }
     }
 
-    // MARK: - Demo analysis content
+    // MARK: - Demo analysis content (fictional — used for screenshots / first-run demo)
 
-    private static let demo_y2kResearch = """
+    private static let demo_productPlanning = """
     ## SUMMARY
-    apolline mapped the y2k aesthetic genealogy from late-90s win98 chrome through the dotcom optimism era. the working thesis: y2k visual culture is a delayed reaction to digital-physical liminality, not nostalgia for the period itself.
+    alex and sam walked through the q3 roadmap. agreed to scope down to two pillars instead of four. main risk: the migration work blocks every other workstream until the schema is stable.
 
     ## NOTES
-    ### genealogy
-    - the period 1996-2002 produced a distinctive chrome + iridescence vocabulary that maps onto the cultural anxiety of platform shift
-    - what looks "retro" to gen z is actually the first generation of consumer software design treating the screen as a 3d object
+    ### scope
+    - dropped the analytics dashboard and the API rewrite from q3 — both move to q4
+    - keeping the migration + the in-app onboarding revamp as the two pillars
 
-    ### why now
-    - we're in a similar liminal moment (ai layer over existing apps) so the visual vocabulary rhymes
-    - tools like figma + framer make the chrome aesthetic cheap to reproduce; in 1999 it required photoshop wizardry
+    ### sequencing
+    - migration first because everything downstream depends on the new schema
+    - onboarding starts as soon as the migration is in staging — no need to wait for full rollout
 
     ## DECISIONS
-    - lead the timbre aesthetic with chrome bubbles + brushed metal, not retro pixel grid
-    - keep the speaker badge color palette saturated y2k blue/cyan/magenta
-    - icon set should be photographic-feeling (gradients, glints) not flat
+    - cut the q3 roadmap from four pillars to two
+    - ship the migration before any new feature work touches the affected models
+    - target the onboarding revamp for the second half of q3
 
     ## ACTIONS
-    - apolline: write the timbre design philosophy doc by next week
-    - apolline: collect 20 reference y2k screenshots into a moodboard
-    - both: review whether chrome-bubble pattern translates to the record view's mic button
+    - alex: write the migration risk doc by wednesday
+    - sam: line up two test customers for early onboarding feedback
+    - both: review the cut q3 items against the q4 plan next monday
 
     ## QUESTIONS
-    - does the y2k frame survive contact with users who weren't alive in 1999?
-    - is the chrome aesthetic actually load-bearing for the product story, or just a vibe?
-    - how do we keep the visual language coherent when we ship dark mode?
+    - do we communicate the scope cut externally or just internally?
+    - is the onboarding revamp blocked on the design system update or independent?
+    - how do we measure success on the migration beyond "it shipped"?
     """
 
-    private static let demo_designCrit = """
+    private static let demo_designReview = """
     ## SUMMARY
-    idan walked through the timbre side panel with apolline. two big calls: actions belong at the top, not the bottom; meeting chips need to feel like first-class navigation, not metadata.
+    jamie walked the team through the new settings flow. two big calls: the empty state needs more guidance, and the destructive actions should live behind a confirmation, not inline.
 
     ## NOTES
-    ### action placement
-    - per-card prompt buttons created visual noise — a single actions banner reads as "what can i do here"
-    - the analyze affordance has to come before the content it would generate, not after
+    ### empty state
+    - users land on the page with no clear next step — needs a one-liner + a primary action
+    - the illustration is great but the copy reads like marketing, not instruction
 
-    ### chips as navigation
-    - flat doc.text glyph reads as metadata; a styled chip with a clear hit target reads as interactive
-    - light-blue gradient against the analysis-card white background gives enough contrast to be obviously tappable
+    ### destructive actions
+    - inline delete buttons create accidental clicks
+    - move to a "danger zone" section at the bottom with a confirmation modal
 
     ## DECISIONS
-    - move all per-card prompt buttons into a single actions row directly under the header
-    - the meeting chip in debrief gets a chip-shaped styled background, not just an icon
-    - keep the prompt + edit button colors light blue, matching decode
+    - add a primary call-to-action to the empty state with copy focused on "what to do next"
+    - move all destructive actions to a separate danger zone with confirmation
+    - keep the illustration but tighten the supporting copy
 
     ## ACTIONS
-    - apolline: implement the actions banner in MemoSidePanel
-    - apolline: restyle the meeting chip with the light-blue gradient capsule
-    - idan: review the next build before friday
+    - jamie: ship the empty-state copy update by thursday
+    - alex: implement the danger-zone confirmation pattern
+    - sam: write the post-launch user-feedback survey
 
     ## QUESTIONS
-    - should the meeting chip eventually surface the speaker icons too?
-    - does "answer" vs "complete" need different colors, or is the placement clear enough?
-    - what happens to a card when its source memo gets deleted?
+    - should the confirmation modal require typing the resource name?
+    - does the empty state need to differ by user type, or stay one-size-fits-all?
+    - is the illustration still the right tone for the new copy?
     """
 
-    private static let demo_a16zKickoff = """
+    private static let demo_quarterlyKickoff = """
     ## SUMMARY
-    kickoff for the a16z application. agreed on the gatekeeper framing as the headline thesis. structured the application around three reference points: a profile interview, a video deep-dive, and a written architecture brief.
+    quarterly kickoff. team aligned on three priorities for the next quarter: ship the new onboarding, double down on activation, and start scoping the integration platform. agreed to publish the roadmap publicly after the first milestone lands.
 
     ## NOTES
-    ### framing
-    - gatekeeper-as-cultural-shift is the strongest single sentence we have
-    - the music supply curve discussion gives the strongest data point — finite attention, infinite supply, value moves up the stack to curation
+    ### priorities
+    - onboarding revamp is priority one — every other metric depends on it
+    - activation is priority two — clear north-star metric, owned by the growth team
+    - integrations platform is priority three — scope this quarter, build next
 
-    ### artifact strategy
-    - interview is the credibility vehicle
-    - video is the visceral demo
-    - architecture brief is the technical proof
+    ### communication
+    - internal kickoff doc goes out this week
+    - external roadmap publishes after onboarding ships
 
     ## DECISIONS
-    - lead the application with the interview piece
-    - defer polish on the video until the interview lands
-    - target friday as the application submission deadline
+    - scope down to three priorities for the quarter
+    - start with onboarding before any activation work
+    - publish the roadmap externally after the launch, not before
 
     ## ACTIONS
-    - apolline: write the interview outline by tuesday
-    - apolline: draft the gatekeeper framing in 2-3 quotable paragraphs
-    - idan: pull together the supply-shock slides from the partnership convo
-    - both: review architecture brief outline thursday
+    - alex: write the quarterly kickoff doc by friday
+    - sam: scope the integrations platform with two engineers
+    - jamie: draft the external roadmap copy for review next week
+    - both leads: weekly check-in every monday until launch
 
     ## QUESTIONS
-    - do we name specific labels as the "gatekeepers" or stay abstract?
-    - is the partnership angle a distraction from the cultural framing, or the proof point?
-    - what's the actual ask of the interviewer — profile or debate?
+    - do we scope to two pillars or three? team felt strongly about cutting one.
+    - should we start with onboarding or activation? both have customer-validated demand.
+    - publish the roadmap externally now, or wait for the first milestone?
     """
 
-    private static let demo_founderCoffee = """
+    private static let demo_oneOnOne = """
     ## SUMMARY
-    maya shared her experience scaling a creator-tools startup from 0 to 50k users. key insight: the founders who succeed in the creator economy aren't the ones who optimize for retention metrics, they're the ones who optimize for being talked about in private group chats.
+    weekly 1:1 with the manager. mostly a check-in on the migration project and a discussion about what "senior-level" work looks like in the next promo cycle. takeaway: take on one cross-team initiative this quarter to round out the case.
 
     ## NOTES
-    ### what maya did differently
-    - prioritized one-on-one onboarding for the first 100 users, against vc advice
-    - never used "growth hacks" — every channel was a direct conversation
-    - shipped slow on purpose to make every feature feel inevitable
+    ### migration progress
+    - on track for the original timeline despite the schema scope creep
+    - the test customer feedback has been more positive than expected — they like the new constraints
 
-    ### what would scale to timbre
-    - the analyze + decode pattern feels right because it mirrors how power users actually take meeting notes
-    - the .md export hits the agent-native angle without us having to oversell it
+    ### career growth
+    - the next promo cycle weighs cross-team impact heavily
+    - good candidates: lead the integrations scoping, mentor a junior on the onboarding work, or write the post-launch retro
 
     ### tactical
-    - the brand voice (lowercase, terse, opinionated) is the thing
-    - landing-page copy should be 80% screenshots, 20% words
+    - blocked on review cycles for two of the migration PRs — manager will follow up
+    - low-pri but useful: rewrite the team's onboarding doc since the original is stale
     """
 
     private var aboutSection: some View {
