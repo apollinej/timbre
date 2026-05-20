@@ -49,6 +49,7 @@ struct ContentView: View {
             guard !didSyncTranscriptExports else { return }
             didSyncTranscriptExports = true
             TranscriptDiskExport.syncAllMemos(modelContext: modelContext)
+            AnalysisDiskExport.syncAll(modelContext: modelContext)
         }
         .alert("import failed", isPresented: Binding(
             get: { importErrorMessage != nil },

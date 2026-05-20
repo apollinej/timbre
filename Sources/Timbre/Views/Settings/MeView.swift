@@ -168,6 +168,7 @@ struct MeView: View {
         }
         demoMemo.analysis = analysis
         try? modelContext.save()
+        AnalysisDiskExport.writeIfPossible(demoMemo)
 
         seedToast = "demo memo added — check debrief"
         Task {

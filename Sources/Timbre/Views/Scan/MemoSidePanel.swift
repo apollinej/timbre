@@ -16,11 +16,25 @@ struct MemoSidePanel: View {
     @State private var showPasteSheet = false
     @State private var pasteText = ""
     @State private var infoToast: String?
-    @State private var sheetMode: PasteSheetMode = .paste
 
-    private enum PasteSheetMode {
-        case paste  // came in via "prompt" — clipboard helpers visible
-        case edit   // came in via "edit"   — just a markdown editor
+    // Inline edit mode (no modal). Edit pill toggles isEditing.
+    // Modal sheet is reserved for the "prompt without an API key"
+    // path where the user runs an LLM externally and pastes back.
+    // When entering, current values are snapshotted into these
+    // draft fields. When exiting via "done", drafts are written
+    // back to MemoAnalysis + the .md file.
+    @State private var isEditing = false
+    @State private var draftSummary = ""
+    @State private var draftNotes = ""
+    @State private var draftDecisions: [DraftItem] = []
+    @State private var draftActions: [DraftItem] = []
+    @State private var draftQuestions: [DraftItem] = []
+
+    struct DraftItem: Identifiable {
+        let id: UUID
+        var text: String
+        /// Source AnalysisItem to update, or nil if newly added in this edit session.
+        var sourceID: PersistentIdentifier?
     }
     private let orchestrator = AnalysisOrchestrator()
 
@@ -181,64 +195,208 @@ struct MemoSidePanel: View {
 
     private var actionsRow: some View {
         HStack(spacing: 8) {
-            TimbrePromptPill(label: "prompt", isBusy: isAnalyzing) {
-                requestAnalysis()
+            if !isEditing {
+                TimbrePromptPill(label: "prompt", isBusy: isAnalyzing) {
+                    requestAnalysis()
+                }
             }
-            TimbreEditPill(label: "edit") {
-                openEditSheet()
+            TimbreActionPill(
+                icon: isEditing ? "checkmark" : "pencil",
+                label: isEditing ? "done" : "edit"
+            ) {
+                if isEditing { commitEdits() } else { enterEditMode() }
             }
             Spacer()
         }
         .padding(.horizontal, 4)
     }
 
-    /// Two-step open so the textarea binding sees the rendered markdown
-    /// BEFORE the sheet body is evaluated. Without the dispatch, SwiftUI
-    /// batches state updates and the TextEditor renders against the
-    /// stale (empty) pasteText.
-    private func openEditSheet() {
-        sheetMode = .edit
-        pasteText = AnalysisPromptBuilder.renderAnalysisMarkdown(memo.analysis)
-        Task { @MainActor in
-            showPasteSheet = true
+    private func enterEditMode() {
+        draftSummary = memo.analysis?.summary ?? ""
+        draftNotes = memo.analysis?.detailedNotes ?? ""
+        draftDecisions = (memo.analysis?.keyDecisions ?? []).map {
+            DraftItem(id: UUID(), text: $0.text, sourceID: $0.persistentModelID)
         }
+        draftActions = (memo.analysis?.actionItems ?? []).map {
+            DraftItem(id: UUID(), text: $0.text, sourceID: $0.persistentModelID)
+        }
+        draftQuestions = (memo.analysis?.openThreads ?? []).map {
+            DraftItem(id: UUID(), text: $0.text, sourceID: $0.persistentModelID)
+        }
+        isEditing = true
+    }
+
+    private func commitEdits() {
+        let analysis = memo.analysis ?? MemoAnalysis(analysisModelUsed: "manual-edit")
+        analysis.summary = draftSummary.trimmingCharacters(in: .whitespacesAndNewlines)
+        analysis.detailedNotes = draftNotes.trimmingCharacters(in: .whitespacesAndNewlines)
+        analysis.dateAnalyzed = .now
+        if analysis.analysisModelUsed.isEmpty {
+            analysis.analysisModelUsed = "manual-edit"
+        }
+        analysis.isStale = false
+
+        syncItems(into: \.keyDecisions, drafts: draftDecisions, type: "decision", analysis: analysis)
+        syncItems(into: \.actionItems, drafts: draftActions, type: "action", analysis: analysis)
+        syncItems(into: \.openThreads, drafts: draftQuestions, type: "thread", analysis: analysis)
+
+        if memo.analysis == nil {
+            modelContext.insert(analysis)
+            memo.analysis = analysis
+        }
+        memo.status = .analyzed
+        try? modelContext.save()
+        AnalysisDiskExport.writeIfPossible(memo)
+        isEditing = false
+        showToast("saved")
+    }
+
+    /// Reconcile a drafted list against the existing AnalysisItem array:
+    /// - Drafts with a sourceID update the existing item's text.
+    /// - Drafts without a sourceID become new AnalysisItems.
+    /// - Existing items missing from drafts get deleted.
+    private func syncItems(
+        into keyPath: ReferenceWritableKeyPath<MemoAnalysis, [AnalysisItem]>,
+        drafts: [DraftItem],
+        type: String,
+        analysis: MemoAnalysis
+    ) {
+        let existing = analysis[keyPath: keyPath]
+        let keptIDs = Set(drafts.compactMap { $0.sourceID })
+        for item in existing where !keptIDs.contains(item.persistentModelID) {
+            modelContext.delete(item)
+        }
+
+        var newList: [AnalysisItem] = []
+        for draft in drafts {
+            let cleaned = draft.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !cleaned.isEmpty else { continue }
+            if let sourceID = draft.sourceID,
+               let item = existing.first(where: { $0.persistentModelID == sourceID }) {
+                item.text = cleaned
+                newList.append(item)
+            } else {
+                let item = AnalysisItem(text: cleaned, sourceMemoID: memo.id, itemType: type)
+                modelContext.insert(item)
+                newList.append(item)
+            }
+        }
+        analysis[keyPath: keyPath] = newList
     }
 
     // MARK: - Analysis cards (display only; actions live in the banner above)
 
     private var summaryCard: some View {
         analysisCard(title: "summary") {
-            Text(memo.analysis?.summary ?? "")
-                .font(Theme.bodyFont)
-                .foregroundStyle(Color(hex: "043050"))
-                .textSelection(.enabled)
+            if isEditing {
+                editableTextEditor(text: $draftSummary, minHeight: 60)
+            } else {
+                Text(memo.analysis?.summary ?? "")
+                    .font(Theme.bodyFont)
+                    .foregroundStyle(Color(hex: "043050"))
+                    .textSelection(.enabled)
+            }
         }
     }
 
     private var notesCard: some View {
         analysisCard(title: "notes") {
-            Text(memo.analysis?.detailedNotes ?? "")
-                .font(Theme.bodyFont)
-                .foregroundStyle(Color(hex: "043050"))
-                .textSelection(.enabled)
+            if isEditing {
+                editableTextEditor(text: $draftNotes, minHeight: 160)
+            } else {
+                Text(memo.analysis?.detailedNotes ?? "")
+                    .font(Theme.bodyFont)
+                    .foregroundStyle(Color(hex: "043050"))
+                    .textSelection(.enabled)
+            }
         }
     }
 
     private var decisionsCard: some View {
         analysisCard(title: "key decisions") {
-            itemList(memo.analysis?.keyDecisions ?? [])
+            if isEditing {
+                editableItemList(drafts: $draftDecisions)
+            } else {
+                itemList(memo.analysis?.keyDecisions ?? [])
+            }
         }
     }
 
     private var actionItemsCard: some View {
         analysisCard(title: "action items") {
-            itemList(memo.analysis?.actionItems ?? [])
+            if isEditing {
+                editableItemList(drafts: $draftActions)
+            } else {
+                itemList(memo.analysis?.actionItems ?? [])
+            }
         }
     }
 
     private var questionsCard: some View {
         analysisCard(title: "open questions") {
-            itemList(memo.analysis?.openThreads ?? [])
+            if isEditing {
+                editableItemList(drafts: $draftQuestions)
+            } else {
+                itemList(memo.analysis?.openThreads ?? [])
+            }
+        }
+    }
+
+    private func editableTextEditor(text: Binding<String>, minHeight: CGFloat) -> some View {
+        TextEditor(text: text)
+            .font(.system(size: 13, design: .monospaced))
+            .scrollContentBackground(.hidden)
+            .padding(8)
+            .frame(minHeight: minHeight)
+            .background(Color.white.opacity(0.5))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(Color(hex: "0080C0").opacity(0.3))
+            )
+    }
+
+    private func editableItemList(drafts: Binding<[DraftItem]>) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(drafts) { $draft in
+                HStack(alignment: .top, spacing: 6) {
+                    Circle()
+                        .fill(Color(hex: "0088FF").opacity(0.4))
+                        .frame(width: 5, height: 5)
+                        .padding(.top, 9)
+                    TextField("", text: $draft.text, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .font(Theme.bodyFont)
+                        .foregroundStyle(Color(hex: "043050"))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.white.opacity(0.4))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .strokeBorder(Color(hex: "0080C0").opacity(0.2))
+                        )
+                    Button {
+                        drafts.wrappedValue.removeAll { $0.id == draft.id }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color(hex: "0088C8").opacity(0.7))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            Button {
+                drafts.wrappedValue.append(DraftItem(id: UUID(), text: "", sourceID: nil))
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 11))
+                    Text("add")
+                        .font(TimbreFont.fontBold(size: 11))
+                }
+                .foregroundStyle(Color(hex: "0088FF"))
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 2)
         }
     }
 
@@ -321,7 +479,6 @@ struct MemoSidePanel: View {
             Task { await runAnalysis() }
         } else {
             copyPrompt()
-            sheetMode = .paste
             pasteText = ""
             showPasteSheet = true
         }
@@ -332,7 +489,7 @@ struct MemoSidePanel: View {
     private var pasteAnalysisSheet: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text(sheetMode == .edit ? "edit analysis" : "paste your analysis")
+                Text("paste your analysis")
                     .font(TimbreFont.fontBold(size: 16))
                     .foregroundStyle(Color(hex: "044060"))
                 Spacer()
@@ -347,32 +504,24 @@ struct MemoSidePanel: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
 
-            if sheetMode == .paste {
-                HStack(spacing: 6) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color(hex: "00A058"))
-                    Text("prompt copied to clipboard — paste it into chatgpt or claude, then paste the response below (or upload a .md file).")
-                        .font(TimbreFont.font(size: 12))
-                        .foregroundStyle(Color(hex: "044060"))
-                }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
-
-                HStack(spacing: 8) {
-                    TimbrePill("re-copy prompt", style: .secondary) { copyPrompt() }
-                    TimbrePill("upload .md file", style: .secondary) { uploadMarkdown() }
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
-            } else {
-                Text("edit the markdown below — save round-trips it back into summary, decisions, action items, questions, and notes.")
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color(hex: "00A058"))
+                Text("prompt copied to clipboard — paste it into chatgpt or claude, then paste the response below (or upload a .md file).")
                     .font(TimbreFont.font(size: 12))
                     .foregroundStyle(Color(hex: "044060"))
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
             }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
+
+            HStack(spacing: 8) {
+                TimbrePill("re-copy prompt", style: .secondary) { copyPrompt() }
+                TimbrePill("upload .md file", style: .secondary) { uploadMarkdown() }
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
 
             TextEditor(text: $pasteText)
                 .font(.system(size: 13, design: .monospaced))
@@ -528,6 +677,7 @@ struct MemoSidePanel: View {
         }
         memo.status = .analyzed
         try? modelContext.save()
+        AnalysisDiskExport.writeIfPossible(memo)
     }
 
     private func makeItem(_ text: String, type: String) -> AnalysisItem {

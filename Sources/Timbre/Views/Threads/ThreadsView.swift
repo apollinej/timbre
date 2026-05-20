@@ -203,6 +203,10 @@ struct ThreadsView: View {
                                 onToggleResolved: {
                                     item.isResolved.toggle()
                                     try? modelContext.save()
+                                    if let id = item.sourceMemoID,
+                                       let memo = memos.first(where: { $0.id == id }) {
+                                        AnalysisDiskExport.writeIfPossible(memo)
+                                    }
                                 },
                                 onOpenMemo: {
                                     if let id = item.sourceMemoID,

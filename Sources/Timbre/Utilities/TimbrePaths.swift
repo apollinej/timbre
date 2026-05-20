@@ -50,6 +50,13 @@ enum TimbrePaths {
         root.appendingPathComponent("transcripts", isDirectory: true)
     }
 
+    /// Markdown analyses (one `.md` per memo). This is the canonical
+    /// representation: any external editor / agent can read and write
+    /// these files, and Timbre reconciles them back into SwiftData.
+    static var analyses: URL {
+        root.appendingPathComponent("analyses", isDirectory: true)
+    }
+
     /// SwiftData store file
     static var databaseStoreURL: URL {
         root.appendingPathComponent("timbre.store", isDirectory: false)
@@ -66,6 +73,7 @@ enum TimbrePaths {
         try fm.createDirectory(at: root, withIntermediateDirectories: true)
         try fm.createDirectory(at: library, withIntermediateDirectories: true)
         try fm.createDirectory(at: transcripts, withIntermediateDirectories: true)
+        try fm.createDirectory(at: analyses, withIntermediateDirectories: true)
         try fm.createDirectory(at: modelCache, withIntermediateDirectories: true)
     }
 

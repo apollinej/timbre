@@ -547,6 +547,7 @@ struct TranscriptView: View {
         }
         memo.status = .analyzed
         try? modelContext.save()
+        AnalysisDiskExport.writeIfPossible(memo)
         showPasteSheet = false
         showToast("analysis saved")
     }
