@@ -99,8 +99,15 @@ enum AnalysisPromptBuilder {
             return "[\(name)] (\(TimeFormatter.format(seg.startTime)))\n\(seg.text)"
         }.joined(separator: "\n\n")
 
+        let suggestedFilename = AnalysisDiskExport.fileURL(
+            date: memo.dateRecorded ?? memo.dateImported,
+            title: memo.title
+        ).lastPathComponent
+
         return """
         You are analyzing a meeting transcript. Output EXACTLY the sections below with the headers exactly as shown — no other sections, no preamble, no closing remarks. Use markdown.
+
+        Save the response as a markdown file named `\(suggestedFilename)` — the format is `YYYY-MM-DD_<short-slug>.md` using the meeting date and a 2–4 word slug derived from the title. If you generate a different filename, keep this convention so timbre and any local file watchers can recognize it.
 
         ## SUMMARY
         A 2-3 sentence executive summary. Lead with the most important outcome or decision.
@@ -122,6 +129,7 @@ enum AnalysisPromptBuilder {
         **Meeting:** \(memo.title)
         **Duration:** \(memo.formattedDuration)
         **Date:** \(memo.displayDate.formatted(date: .long, time: .shortened))
+        **Suggested filename:** `\(suggestedFilename)`
 
         **Transcript:**
 

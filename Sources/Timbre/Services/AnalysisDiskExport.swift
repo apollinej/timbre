@@ -53,12 +53,30 @@ enum AnalysisDiskExport {
     }
 
     /// Backfill: write a `.md` for every memo that has analysis but
-    /// no file on disk yet. Idempotent — overwrites stale files.
+    /// no file on disk yet. Also removes orphaned legacy-format files
+    /// (e.g. left over from the previous `<slug>__<id>.md` scheme)
+    /// so the analyses/ directory mirrors the current memo set.
     static func syncAll(modelContext: ModelContext) {
         do {
+            try TimbrePaths.prepareStorageDirectories()
             let memos = try modelContext.fetch(FetchDescriptor<Memo>())
+            var expected: Set<String> = []
             for memo in memos where memo.analysis != nil {
                 writeIfPossible(memo)
+                expected.insert(fileURL(for: memo).lastPathComponent)
+            }
+
+            // Sweep orphans (legacy naming, deleted memos, etc.)
+            let fm = FileManager.default
+            if let entries = try? fm.contentsOfDirectory(
+                at: TimbrePaths.analyses,
+                includingPropertiesForKeys: nil
+            ) {
+                for url in entries where url.pathExtension == "md" {
+                    if !expected.contains(url.lastPathComponent) {
+                        try? fm.removeItem(at: url)
+                    }
+                }
             }
         } catch {
             #if DEBUG
@@ -134,31 +152,57 @@ enum AnalysisDiskExport {
     // MARK: - Paths
 
     private static func fileURL(for memo: Memo) -> URL {
-        fileURL(memoID: memo.id, title: memo.title)
+        fileURL(date: memo.dateRecorded ?? memo.dateImported, title: memo.title)
     }
 
     private static func fileURL(memoID: UUID, title: String) -> URL {
-        let slug = slugify(title)
-        let shortID = String(memoID.uuidString.prefix(8)).lowercased()
-        let name = "\(slug)__\(shortID).md"
+        // Legacy callers that only know id+title — best effort.
+        fileURL(date: .now, title: title)
+    }
+
+    /// `YYYY-MM-DD_<2-4-word-slug>.md` — date-sortable, human-readable,
+    /// safe in Finder / Obsidian / agents.
+    static func fileURL(date: Date, title: String) -> URL {
+        let datePrefix = isoDateFormatter.string(from: date)
+        let slug = shortSlug(title)
+        let name = "\(datePrefix)_\(slug).md"
         return TimbrePaths.analyses.appendingPathComponent(name)
     }
 
-    private static func slugify(_ title: String) -> String {
-        let allowed = CharacterSet.alphanumerics.union(.init(charactersIn: "-_"))
+    private static let isoDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone.current
+        return f
+    }()
+
+    /// 2-4 lowercased words from the title, hyphen-joined, with
+    /// dates/years stripped (since the filename already has the date).
+    static func shortSlug(_ title: String) -> String {
+        let allowed = CharacterSet.alphanumerics.union(.init(charactersIn: " "))
         let lowered = title.lowercased()
-        var out = ""
-        var lastWasDash = false
+        var cleaned = ""
         for scalar in lowered.unicodeScalars {
-            if allowed.contains(scalar) {
-                out.append(Character(scalar))
-                lastWasDash = false
-            } else if !lastWasDash {
-                out.append("-")
-                lastWasDash = true
-            }
+            cleaned.append(allowed.contains(scalar) ? Character(scalar) : " ")
         }
-        let trimmed = out.trimmingCharacters(in: .init(charactersIn: "-"))
-        return trimmed.isEmpty ? "untitled" : String(trimmed.prefix(60))
+        let stopwords: Set<String> = [
+            "the", "a", "an", "of", "to", "for", "with", "and", "or", "in", "on", "at",
+            "we", "i", "you", "is", "are", "was", "were", "be", "as",
+            "pt", "part", "vol", "ep",
+        ]
+        let words = cleaned
+            .split(separator: " ")
+            .map(String.init)
+            .filter { word in
+                guard !word.isEmpty else { return false }
+                // Drop pure numbers (likely dates / part numbers like "20", "2026", "1")
+                if word.allSatisfy({ $0.isNumber }) { return false }
+                if stopwords.contains(word) { return false }
+                return true
+            }
+        let picked = Array(words.prefix(3))
+        let slug = picked.joined(separator: "-")
+        return slug.isEmpty ? "untitled" : slug
     }
 }
