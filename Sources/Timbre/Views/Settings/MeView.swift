@@ -2,9 +2,11 @@ import SwiftUI
 
 struct MeView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @State private var apiKey = ""
     @State private var keySaved = false
     @State private var keyError: String?
+    @State private var seedToast: String?
 
     var body: some View {
         ZStack {
@@ -17,6 +19,7 @@ struct MeView: View {
                     VStack(spacing: 20) {
                         aiProviderSection
                         apiKeySection
+                        developerSection
                         aboutSection
                     }
                     .padding(20)
@@ -105,6 +108,71 @@ struct MeView: View {
                     .font(TimbreFont.font(size: 11))
                     .foregroundStyle(Color(hex: "2090C8"))
             }
+        }
+    }
+
+    private var developerSection: some View {
+        sectionCard("developer") {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("seed a demo memo with fully populated analysis so you can see debrief working end-to-end. you can delete the demo memo afterward.")
+                        .font(TimbreFont.font(size: 12))
+                        .foregroundStyle(Color(hex: "2090C8"))
+                    Spacer()
+                }
+
+                HStack {
+                    TimbrePill("seed demo data", style: .primary) { seedDemoData() }
+                    if let t = seedToast {
+                        Text(t)
+                            .font(TimbreFont.font(size: 12))
+                            .foregroundStyle(.green)
+                    }
+                    Spacer()
+                }
+            }
+        }
+    }
+
+    private func seedDemoData() {
+        let demoMemo = Memo(
+            title: "demo: a16z application prep",
+            sourceURL: TimbrePaths.library.appendingPathComponent("demo-placeholder.m4a"),
+            audioBookmark: nil,
+            dateRecorded: Calendar.current.date(byAdding: .day, value: -2, to: .now),
+            duration: 60 * 15 + 37,
+            fileSize: 0
+        )
+        demoMemo.status = .analyzed
+        modelContext.insert(demoMemo)
+
+        let parsed = AnalysisPromptBuilder.parseManualResponse(MemoSidePanel.sampleResponse)
+        let analysis = MemoAnalysis(analysisModelUsed: "demo-seed")
+        analysis.summary = parsed.summary
+        analysis.detailedNotes = parsed.detailedNotes
+        analysis.dateAnalyzed = .now
+        analysis.isStale = false
+        modelContext.insert(analysis)
+
+        analysis.actionItems = parsed.actionItems.map {
+            let i = AnalysisItem(text: $0, sourceMemoID: demoMemo.id, itemType: "action")
+            modelContext.insert(i); return i
+        }
+        analysis.openThreads = parsed.threads.map {
+            let i = AnalysisItem(text: $0, sourceMemoID: demoMemo.id, itemType: "thread")
+            modelContext.insert(i); return i
+        }
+        analysis.keyDecisions = parsed.decisions.map {
+            let i = AnalysisItem(text: $0, sourceMemoID: demoMemo.id, itemType: "decision")
+            modelContext.insert(i); return i
+        }
+        demoMemo.analysis = analysis
+        try? modelContext.save()
+
+        seedToast = "demo memo added — check debrief"
+        Task {
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            await MainActor.run { seedToast = nil }
         }
     }
 

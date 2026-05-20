@@ -191,6 +191,34 @@ enum AnalysisPromptBuilder {
         )
     }
 
+    /// Reverse of parseManualResponse — render a MemoAnalysis as
+    /// markdown the user can edit, using the exact same section headers.
+    /// Round-trippable: parse(render(analysis)) reproduces analysis.
+    static func renderAnalysisMarkdown(_ analysis: MemoAnalysis?) -> String {
+        guard let a = analysis else { return "" }
+        var parts: [String] = []
+
+        if let s = a.summary, !s.isEmpty {
+            parts.append("## SUMMARY\n\(s)")
+        }
+        if !a.keyDecisions.isEmpty {
+            let body = a.keyDecisions.map { "- \($0.text)" }.joined(separator: "\n")
+            parts.append("## DECISIONS\n\(body)")
+        }
+        if !a.actionItems.isEmpty {
+            let body = a.actionItems.map { "- \($0.text)" }.joined(separator: "\n")
+            parts.append("## ACTIONS\n\(body)")
+        }
+        if !a.openThreads.isEmpty {
+            let body = a.openThreads.map { "- \($0.text)" }.joined(separator: "\n")
+            parts.append("## QUESTIONS\n\(body)")
+        }
+        if let n = a.detailedNotes, !n.isEmpty {
+            parts.append("## NOTES\n\(n)")
+        }
+        return parts.joined(separator: "\n\n")
+    }
+
     private static func parseBullets(_ text: String) -> [String] {
         text.components(separatedBy: .newlines).compactMap { raw in
             let line = raw.trimmingCharacters(in: .whitespaces)

@@ -18,10 +18,10 @@ struct MemoSidePanel: View {
     @State private var infoToast: String?
     private let orchestrator = AnalysisOrchestrator()
 
-    /// All cards render unconditionally now (empty cards show a prompt button),
-    /// so every section is always a valid jump target.
+    /// All cards render unconditionally. Notes is second-to-last
+    /// because the body is long; transcript is the final stop.
     private var availableSections: [String] {
-        ["header", "summary", "notes", "key decisions", "action items", "open questions", "transcript"]
+        ["header", "summary", "key decisions", "action items", "open questions", "notes", "transcript"]
     }
 
     var body: some View {
@@ -32,11 +32,12 @@ struct MemoSidePanel: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 14) {
                             titleCard.id("header")
+                            actionsRow
                             summaryCard.id("summary")
-                            notesCard.id("notes")
                             decisionsCard.id("key decisions")
                             actionItemsCard.id("action items")
                             questionsCard.id("open questions")
+                            notesCard.id("notes")
                             transcriptSection.id("transcript")
                         }
                         .padding(16)
@@ -170,10 +171,26 @@ struct MemoSidePanel: View {
         .sectionCard()
     }
 
-    // MARK: - Analysis cards (always rendered; empty cards show a prompt button)
+    // MARK: - Actions banner (sits directly under the header card)
+
+    private var actionsRow: some View {
+        HStack(spacing: 8) {
+            TimbrePromptPill(label: "prompt", isBusy: isAnalyzing) {
+                requestAnalysis()
+            }
+            TimbreEditPill(label: "edit") {
+                pasteText = AnalysisPromptBuilder.renderAnalysisMarkdown(memo.analysis)
+                showPasteSheet = true
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 4)
+    }
+
+    // MARK: - Analysis cards (display only; actions live in the banner above)
 
     private var summaryCard: some View {
-        analysisCard(title: "summary", isEmpty: (memo.analysis?.summary ?? "").isEmpty) {
+        analysisCard(title: "summary") {
             Text(memo.analysis?.summary ?? "")
                 .font(Theme.bodyFont)
                 .foregroundStyle(Color(hex: "043050"))
@@ -182,7 +199,7 @@ struct MemoSidePanel: View {
     }
 
     private var notesCard: some View {
-        analysisCard(title: "notes", isEmpty: (memo.analysis?.detailedNotes ?? "").isEmpty) {
+        analysisCard(title: "notes") {
             Text(memo.analysis?.detailedNotes ?? "")
                 .font(Theme.bodyFont)
                 .foregroundStyle(Color(hex: "043050"))
@@ -191,28 +208,19 @@ struct MemoSidePanel: View {
     }
 
     private var decisionsCard: some View {
-        analysisCard(
-            title: "key decisions",
-            isEmpty: (memo.analysis?.keyDecisions ?? []).isEmpty
-        ) {
+        analysisCard(title: "key decisions") {
             itemList(memo.analysis?.keyDecisions ?? [])
         }
     }
 
     private var actionItemsCard: some View {
-        analysisCard(
-            title: "action items",
-            isEmpty: (memo.analysis?.actionItems ?? []).isEmpty
-        ) {
+        analysisCard(title: "action items") {
             itemList(memo.analysis?.actionItems ?? [])
         }
     }
 
     private var questionsCard: some View {
-        analysisCard(
-            title: "open questions",
-            isEmpty: (memo.analysis?.openThreads ?? []).isEmpty
-        ) {
+        analysisCard(title: "open questions") {
             itemList(memo.analysis?.openThreads ?? [])
         }
     }
@@ -220,26 +228,15 @@ struct MemoSidePanel: View {
     @ViewBuilder
     private func analysisCard<Content: View>(
         title: String,
-        isEmpty: Bool,
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(TimbreFont.fontBold(size: 15))
                 .foregroundStyle(Color(hex: "0088FF"))
-            if isEmpty {
-                promptButton
-            } else {
-                content()
-            }
+            content()
         }
         .sectionCard()
-    }
-
-    private var promptButton: some View {
-        TimbrePromptPill(label: "prompt", isBusy: isAnalyzing) {
-            requestAnalysis()
-        }
     }
 
     private func itemList(_ items: [AnalysisItem]) -> some View {
@@ -346,7 +343,6 @@ struct MemoSidePanel: View {
             HStack(spacing: 8) {
                 TimbrePill("re-copy prompt", style: .secondary) { copyPrompt() }
                 TimbrePill("upload .md file", style: .secondary) { uploadMarkdown() }
-                TimbrePill("use sample", style: .secondary) { pasteText = sampleResponse }
                 Spacer()
             }
             .padding(.horizontal, 16)
@@ -407,9 +403,9 @@ struct MemoSidePanel: View {
         showToast("analysis saved")
     }
 
-    /// Realistic sample response so the user can see Debrief populated
-    /// without running OpenAI. Triggered by "use sample" in the paste sheet.
-    private var sampleResponse: String {
+    /// Used by the "Seed demo Debrief data" action in settings —
+    /// not shown in the browse side panel itself.
+    static var sampleResponse: String {
         """
         ## SUMMARY
         The team aligned on positioning around active duration and the cultural shift away from algorithmic feeds. Major decision: lead with the gatekeeper framing rather than the tooling story, with a credibility-first interview as the opener.

@@ -55,10 +55,11 @@ struct TimbrePill: View {
     }
 }
 
-/// Sparkle-prefixed primary pill — matches TimbrePill primary chrome
-/// (gradient + glossy border) so action buttons stay visually
-/// consistent with the rest of the app.
-struct TimbrePromptPill: View {
+/// Light-blue action pill matching the decode-page headerPill style
+/// (light gradient, darker text, glossy border). Used for the
+/// "prompt" / "edit" / "export" / etc. actions in the side panel.
+struct TimbreActionPill: View {
+    let icon: String
     let label: String
     var isBusy: Bool = false
     let action: () -> Void
@@ -67,32 +68,53 @@ struct TimbrePromptPill: View {
         Button(action: action) {
             HStack(spacing: 5) {
                 if isBusy {
-                    ProgressView().controlSize(.small).tint(.white)
+                    ProgressView().controlSize(.small).tint(Color(hex: "0088FF"))
                 } else {
-                    Image(systemName: "sparkles")
+                    Image(systemName: icon)
                         .font(.system(size: 11, weight: .bold))
                 }
                 Text(isBusy ? "analyzing\u{2026}" : label)
-                    .font(TimbreFont.fontBold(size: 13))
+                    .font(TimbreFont.fontBold(size: 12))
             }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 7)
+            .foregroundStyle(Color(hex: "0088FF"))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
             .background(
                 Capsule().fill(
                     LinearGradient(
-                        colors: [Color(hex: "00B8FF"), Color(hex: "0080E0")],
+                        colors: [Color(hex: "F0FCFF"), Color(hex: "A0D8F8")],
                         startPoint: .top, endPoint: .bottom
                     )
                 )
             )
             .overlay(
-                Capsule().strokeBorder(Color.white.opacity(0.45), lineWidth: 1)
+                Capsule().strokeBorder(Color(hex: "0080C0").opacity(0.35), lineWidth: 1)
             )
-            .shadow(color: Color(hex: "00C8FF").opacity(0.25), radius: 3, y: 1)
+            .shadow(color: Color(hex: "00C8FF").opacity(0.15), radius: 2, y: 1)
         }
         .buttonStyle(.plain)
         .disabled(isBusy)
+    }
+}
+
+/// Sparkle-prefixed action pill — light blue to signal actionable.
+struct TimbrePromptPill: View {
+    let label: String
+    var isBusy: Bool = false
+    let action: () -> Void
+
+    var body: some View {
+        TimbreActionPill(icon: "sparkles", label: label, isBusy: isBusy, action: action)
+    }
+}
+
+/// Pencil-prefixed action pill — light blue, for editing existing analysis.
+struct TimbreEditPill: View {
+    let label: String
+    let action: () -> Void
+
+    var body: some View {
+        TimbreActionPill(icon: "pencil", label: label, isBusy: false, action: action)
     }
 }
 
