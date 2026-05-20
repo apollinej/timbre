@@ -179,77 +179,106 @@ struct MeView: View {
                      of: cal.date(byAdding: .day, value: -n, to: now) ?? now) ?? now
         }
 
-        // 1. Un-analyzed — to demo the empty cards and prompt button
-        seedMemo(
-            title: "tuesday standup",
-            date: daysAgo(1, hour: 9, minute: 30),
-            duration: 18 * 60 + 22,
+        // 1. Un-analyzed solo voice memo
+        let bus = seedMemo(
+            title: "voice memo from the bus",
+            date: daysAgo(1, hour: 18, minute: 47),
+            duration: 4 * 60 + 22,
             analysisMarkdown: nil
         )
+        if let m = bus { seedTranscript(memo: m, names: ["me"], lines: [
+            (0, 0, "okay so the thing i keep coming back to is that the ep needs a name that doesn't sound like every other ep name from this year."),
+            (0, 14, "what if we just lean into the bus thing. like the whole record is voice memos i sent myself on public transit."),
+        ]) }
 
-        // 2. Full analysis, no resolutions yet — to demo fresh Debrief items
-        seedMemo(
-            title: "product planning",
-            date: daysAgo(5, hour: 15, minute: 0),
-            duration: 47 * 60 + 12,
-            analysisMarkdown: Self.demo_productPlanning
+        // 2. Phone call w/ collaborator, fresh analysis
+        let phoneKai = seedMemo(
+            title: "phone call with kai",
+            date: daysAgo(4, hour: 21, minute: 12),
+            duration: 27 * 60 + 38,
+            analysisMarkdown: Self.demo_phoneKai
         )
+        if let m = phoneKai { seedTranscript(memo: m, names: ["me", "kai"], lines: [
+            (0, 0, "okay so the cover. you wanna go darker, right?"),
+            (1, 4, "yeah. it just reads more cohesive across the track sequence. especially track 3 into 4."),
+            (0, 9, "i hear that but the iridescent thing is what ties it to the live show. the lights."),
+            (1, 16, "okay why don't we just mock both and sit with it for a week."),
+        ]) }
 
-        // 3. Partial resolutions — some answered, some pending
-        let review = seedMemo(
-            title: "design review",
-            date: daysAgo(8, hour: 11, minute: 0),
-            duration: 32 * 60 + 30,
-            analysisMarkdown: Self.demo_designReview
+        // 3. Partial resolutions — studio chat
+        let studio = seedMemo(
+            title: "studio chat with noor",
+            date: daysAgo(7, hour: 14, minute: 0),
+            duration: 41 * 60 + 18,
+            analysisMarkdown: Self.demo_studioNoor
         )
-        if let memo = review, let analysis = memo.analysis {
+        if let memo = studio, let analysis = memo.analysis {
             if let t = analysis.openThreads.first {
-                t.resolution = "decided the simpler layout reads better — shipped friday with no regressions."
+                t.resolution = "yeah — we're keeping the original sample. it's the whole reason the song works."
                 t.isResolved = true
             }
             if let d = analysis.keyDecisions.first {
-                d.resolution = "rolled out behind the new-ui feature flag, off by default."
+                d.resolution = "vinyl first, streaming follows. confirmed with the pressing plant friday."
                 d.isResolved = true
             }
-            if let a = analysis.actionItems.first {
-                a.isResolved = true
-            }
+            if let a = analysis.actionItems.first { a.isResolved = true }
             try? modelContext.save()
             AnalysisDiskExport.writeIfPossible(memo)
+            seedTranscript(memo: memo, names: ["me", "noor"], lines: [
+                (0, 0, "the sample is the whole point of the song, we can't lose it."),
+                (1, 5, "i agree but we have to figure out the clearance situation first."),
+                (0, 11, "okay let's call the publisher monday."),
+            ])
         }
 
-        // 4. Everything completed — all green tags, .md has > quote resolutions
-        let kickoff = seedMemo(
-            title: "quarterly kickoff",
-            date: daysAgo(10, hour: 16, minute: 15),
-            duration: 54 * 60 + 0,
-            analysisMarkdown: Self.demo_quarterlyKickoff
+        // 4. Everything resolved — weekend trip planning
+        let trip = seedMemo(
+            title: "weekend trip planning",
+            date: daysAgo(10, hour: 19, minute: 30),
+            duration: 36 * 60 + 5,
+            analysisMarkdown: Self.demo_tripPlanning
         )
-        if let memo = kickoff, let analysis = memo.analysis {
+        if let memo = trip, let analysis = memo.analysis {
+            let qRes = [
+                "we're skipping the museum — group consensus, too packed on saturday.",
+                "lou's friend has the apartment, so yes free for both nights.",
+                "decided no — we're keeping it loose. no formal dinner plan."
+            ]
+            let dRes = [
+                "drive — split gas three ways, leaves at 9am friday.",
+                "stay at lou's friend's place fri + sat.",
+                "saturday night: walk around the neighborhood, find food on the fly."
+            ]
             for (i, t) in analysis.openThreads.enumerated() {
-                t.resolution = ["agreed to scope down to two pillars instead of four.",
-                                "decided to start with onboarding before the retention work.",
-                                "no — we'll publish the roadmap externally after the launch."][safe: i] ?? "resolved."
+                t.resolution = qRes[safe: i] ?? "resolved."
                 t.isResolved = true
             }
             for (i, d) in analysis.keyDecisions.enumerated() {
-                d.resolution = ["shared the kickoff doc with the team before friday.",
-                                "deferred the rebrand until after the next milestone.",
-                                "set a hard deadline for the launch: end of next month."][safe: i] ?? "done."
+                d.resolution = dRes[safe: i] ?? "done."
                 d.isResolved = true
             }
             for a in analysis.actionItems { a.isResolved = true }
             try? modelContext.save()
             AnalysisDiskExport.writeIfPossible(memo)
+            seedTranscript(memo: memo, names: ["me", "lou", "vee"], lines: [
+                (0, 0, "okay so are we driving or training?"),
+                (1, 4, "driving is way easier with all the stuff."),
+                (2, 8, "and we can stop in pittsburgh on the way."),
+                (0, 13, "okay drive it is. who's renting?"),
+            ])
         }
 
-        // 5. Summary + notes only, no items — to demo varied analysis shapes
-        seedMemo(
-            title: "1:1 with manager",
-            date: daysAgo(13, hour: 14, minute: 0),
-            duration: 22 * 60 + 8,
-            analysisMarkdown: Self.demo_oneOnOne
+        // 5. Summary + notes only — 3am voice note
+        let threeAm = seedMemo(
+            title: "3am thought log",
+            date: daysAgo(13, hour: 3, minute: 14),
+            duration: 6 * 60 + 41,
+            analysisMarkdown: Self.demo_threeAm
         )
+        if let m = threeAm { seedTranscript(memo: m, names: ["me"], lines: [
+            (0, 0, "okay it's 3am and i had this thought that i don't want to forget."),
+            (0, 6, "what if the album sequencing was based on what time of day each song was made."),
+        ]) }
 
         seedToast = "5 demo memos added — check browse + debrief"
         Task {
@@ -304,6 +333,41 @@ struct MeView: View {
         return memo
     }
 
+    /// Seed a minimal transcript with N speakers (named via `names`) and
+    /// a few segments (speakerIndex, startTime, text). Just enough to make
+    /// the speaker chips appear in Browse cards + side panel.
+    private func seedTranscript(
+        memo: Memo,
+        names: [String],
+        lines: [(Int, TimeInterval, String)]
+    ) {
+        let palette = ["0088FF", "00C890", "FF7AB6", "FFB347", "B27AFF"]
+        let speakers: [Speaker] = names.enumerated().map { (idx, name) in
+            let s = Speaker(
+                label: "Speaker \(idx + 1)",
+                displayName: name,
+                colorHex: palette[idx % palette.count]
+            )
+            modelContext.insert(s)
+            return s
+        }
+        let transcript = Transcript(modelUsed: "demo-seed", language: "en")
+        modelContext.insert(transcript)
+        for (speakerIdx, start, text) in lines {
+            let seg = Segment(
+                text: text,
+                startTime: start,
+                endTime: start + 3,
+                speaker: speakers[safe: speakerIdx]
+            )
+            modelContext.insert(seg)
+            transcript.segments.append(seg)
+        }
+        memo.transcript = transcript
+        try? modelContext.save()
+        AnalysisDiskExport.writeIfPossible(memo)
+    }
+
     private func resetAllData() {
         // SwiftData: delete every memo, analysis, analysis item, folder.
         // SwiftData cascades from Memo through analysis -> items via the
@@ -339,111 +403,118 @@ struct MeView: View {
 
     // MARK: - Demo analysis content (fictional — used for screenshots / first-run demo)
 
-    private static let demo_productPlanning = """
+    private static let demo_phoneKai = """
     ## SUMMARY
-    alex and sam walked through the q3 roadmap. agreed to scope down to two pillars instead of four. main risk: the migration work blocks every other workstream until the schema is stable.
+    long phone call with kai about the ep cover. they want darker, i want iridescent. landed on mocking both and sitting with them for a week before deciding. tied to the bigger question of whether the cover should read at vinyl scale or just digital.
 
     ## NOTES
-    ### scope
-    - dropped the analytics dashboard and the API rewrite from q3 — both move to q4
-    - keeping the migration + the in-app onboarding revamp as the two pillars
+    ### the visual disagreement
+    - kai's argument: darker palette reads more cohesive across the track sequence, especially the transition into track 3
+    - my pull: iridescent ties the cover back to the live show lighting design
 
-    ### sequencing
-    - migration first because everything downstream depends on the new schema
-    - onboarding starts as soon as the migration is in staging — no need to wait for full rollout
+    ### what we landed on
+    - both of us mock our direction
+    - sit with both for a week, no committing on the call
+    - revisit next friday
 
     ## DECISIONS
-    - cut the q3 roadmap from four pillars to two
-    - ship the migration before any new feature work touches the affected models
-    - target the onboarding revamp for the second half of q3
+    - mock both palettes before committing
+    - defer the final cover call to next friday
+    - cover decision blocks the merch order — flag for the press cycle
 
     ## ACTIONS
-    - alex: write the migration risk doc by wednesday
-    - sam: line up two test customers for early onboarding feedback
-    - both: review the cut q3 items against the q4 plan next monday
+    - me: draft the iridescent version by sunday
+    - kai: pull the dark-palette moodboard
+    - me: sketch how the cover crops for the spotify canvas
 
     ## QUESTIONS
-    - do we communicate the scope cut externally or just internally?
-    - is the onboarding revamp blocked on the design system update or independent?
-    - how do we measure success on the migration beyond "it shipped"?
+    - does the cover need to read at vinyl scale, or just digital first?
+    - should we test on actual screens with people before committing?
+    - is the cover typography locked or still open to revisit?
     """
 
-    private static let demo_designReview = """
+    private static let demo_studioNoor = """
     ## SUMMARY
-    jamie walked the team through the new settings flow. two big calls: the empty state needs more guidance, and the destructive actions should live behind a confirmation, not inline.
+    studio session with noor on the sample question. we were going to swap the original sample because of clearance concerns, but talked through it and agreed the song doesn't work without it. plan is to call the publisher monday and figure out the actual licensing path.
 
     ## NOTES
-    ### empty state
-    - users land on the page with no clear next step — needs a one-liner + a primary action
-    - the illustration is great but the copy reads like marketing, not instruction
+    ### the sample debate
+    - noor's worry: clearance might be expensive or blocked entirely
+    - my position: it's the whole emotional core of the song. song doesn't exist without it.
+    - we both agreed once we listened back to a version without it — it just doesn't land
 
-    ### destructive actions
-    - inline delete buttons create accidental clicks
-    - move to a "danger zone" section at the bottom with a confirmation modal
+    ### release format
+    - vinyl first feels right for this record specifically
+    - streaming can follow a week later, gives the record a moment
 
     ## DECISIONS
-    - add a primary call-to-action to the empty state with copy focused on "what to do next"
-    - move all destructive actions to a separate danger zone with confirmation
-    - keep the illustration but tighten the supporting copy
+    - keep the original sample, pursue clearance
+    - release vinyl first, streaming follows
+    - cancel the alt-version tracking session — not needed
 
     ## ACTIONS
-    - jamie: ship the empty-state copy update by thursday
-    - alex: implement the danger-zone confirmation pattern
-    - sam: write the post-launch user-feedback survey
+    - me: call the publisher monday morning
+    - noor: pull the sample's metadata + previous use cases for the call
+    - me: confirm vinyl pressing plant slot for the new timeline
 
     ## QUESTIONS
-    - should the confirmation modal require typing the resource name?
-    - does the empty state need to differ by user type, or stay one-size-fits-all?
-    - is the illustration still the right tone for the new copy?
+    - if clearance fails, do we shelve the song or hire a re-interpolator?
+    - should we tease the song before clearance is locked, or wait?
+    - what's the right vinyl-only window — a week, two, a month?
     """
 
-    private static let demo_quarterlyKickoff = """
+    private static let demo_tripPlanning = """
     ## SUMMARY
-    quarterly kickoff. team aligned on three priorities for the next quarter: ship the new onboarding, double down on activation, and start scoping the integration platform. agreed to publish the roadmap publicly after the first milestone lands.
+    trip planning call with lou and vee for the long weekend. settled on driving instead of training, staying at lou's friend's apartment, and keeping saturday loose. the museum got cut, the formal dinner got cut, and we agreed that's a feature not a bug.
 
     ## NOTES
-    ### priorities
-    - onboarding revamp is priority one — every other metric depends on it
-    - activation is priority two — clear north-star metric, owned by the growth team
-    - integrations platform is priority three — scope this quarter, build next
+    ### transit
+    - driving wins because of all the gear we want to bring
+    - vee suggested stopping in pittsburgh on the way — small detour, worth it
 
-    ### communication
-    - internal kickoff doc goes out this week
-    - external roadmap publishes after onboarding ships
+    ### the loose-saturday philosophy
+    - lou pushed for an unstructured saturday after the last trip got over-planned
+    - vee was the dissent — wanted at least one anchor reservation
+    - we compromised: no plans saturday, but friday dinner is locked
 
     ## DECISIONS
-    - scope down to three priorities for the quarter
-    - start with onboarding before any activation work
-    - publish the roadmap externally after the launch, not before
+    - drive, not train — leaving 9am friday
+    - stay at lou's friend's apartment for both nights
+    - keep saturday completely unplanned — walk around, find food on the fly
 
     ## ACTIONS
-    - alex: write the quarterly kickoff doc by friday
-    - sam: scope the integrations platform with two engineers
-    - jamie: draft the external roadmap copy for review next week
-    - both leads: weekly check-in every monday until launch
+    - lou: confirm the apartment friday morning
+    - me: book the friday dinner spot
+    - vee: figure out the pittsburgh stop — where, how long
 
     ## QUESTIONS
-    - do we scope to two pillars or three? team felt strongly about cutting one.
-    - should we start with onboarding or activation? both have customer-validated demand.
-    - publish the roadmap externally now, or wait for the first milestone?
+    - do we want to do the museum or skip it?
+    - is the apartment free both nights or just one?
+    - should we book a formal dinner saturday or stay loose?
     """
 
-    private static let demo_oneOnOne = """
+    private static let demo_threeAm = """
     ## SUMMARY
-    weekly 1:1 with the manager. mostly a check-in on the migration project and a discussion about what "senior-level" work looks like in the next promo cycle. takeaway: take on one cross-team initiative this quarter to round out the case.
+    3am voice memo. one idea: sequence the album by the time of day each song was made rather than by mood or energy. the night songs cluster at the start, sunrise transitions to the daytime songs in the middle, evening songs land at the end. could either be a meta-concept the listener doesn't need to know, or part of the press story.
 
     ## NOTES
-    ### migration progress
-    - on track for the original timeline despite the schema scope creep
-    - the test customer feedback has been more positive than expected — they like the new constraints
+    ### the time-of-day sequence
+    - night tracks 1-3 (made between 1am-5am)
+    - dawn track 4 (the field recording is literally a sunrise)
+    - daytime tracks 5-8 (made afternoon or evening)
+    - night again for the closer — full loop
 
-    ### career growth
-    - the next promo cycle weighs cross-team impact heavily
-    - good candidates: lead the integrations scoping, mentor a junior on the onboarding work, or write the post-launch retro
+    ### whether to surface this
+    - the cleanest version is to never tell anyone and let the structure work in the background
+    - the press-friendly version is to lead with it — it's a clean narrative hook
 
-    ### tactical
-    - blocked on review cycles for two of the migration PRs — manager will follow up
-    - low-pri but useful: rewrite the team's onboarding doc since the original is stale
+    ### what it costs us
+    - track 6 might need to move because of energy reasons even if it's daytime
+    - the time-of-day rule can't be a hard constraint; it should be a strong default
+
+    ### feel of it
+    - if it works, it'll feel like the album breathes
+    - if it doesn't work, no one will know we tried
     """
 
     private var aboutSection: some View {

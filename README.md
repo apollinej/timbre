@@ -1,72 +1,121 @@
-# timbre
+# timbre 🎙️
 
 > what did you say again?
 
-**Timbre is a free, open-source voice notetaker built for the AI-native workflow.** It's the missing layer between Granola (smart meeting capture, but locked in their cloud) and Obsidian (you own your files, but you write them by hand). Record a meeting → on-device transcription → analysis through whichever LLM you trust → every meeting persists as a flat `.md` file your agents can read, edit, and reason over.
+a free, open-source voice notetaker built for the AI-native workflow. transcription runs locally with whisperkit. every meeting gets written out as a flat `.md` file your agents can read, edit, and reason over. no cloud, no lock-in, no enterprise saas vibes.
 
-## why timbre
+![timbre home](screenshots/01-home.png)
 
-Most meeting tools force a trade-off:
+## the why
 
-- **Cloud notetakers** (Granola, Fathom, Otter): smart, but your audio leaves the device and your notes live in their database. Your data isn't your data.
-- **Personal knowledge tools** (Obsidian, Notion, Logseq): you own the files, but you're the one writing them. No transcription, no smart synthesis.
-- **DIY scripts**: whisper.cpp + a folder of `.md` files works, but there's no app, no UI, no place to *use* the notes once they exist.
+wanted AI-native note-taking like obsidian, but for voice instead of typing. i use openclaw agents every day and needed a front-end layer between thinking out loud and what i'm actually working on. nothing on the market hit the brief — granola is closed-source and lives in their cloud. obsidian is yours but doesn't capture voice. whisper.cpp + a folder of `.md` files works but there's no UI to actually *use* the notes once they exist.
 
-Timbre is what happens when you treat both ends as load-bearing. Transcription is on-device (WhisperKit + speaker diarization, no audio uploaded anywhere). Analysis is opt-in and goes through *your* OpenAI key, *your* local LLM, or — if you don't want any of that — a copy-paste prompt you can hand to ChatGPT, Claude, or any LLM you trust, then paste the result back. Everything saves as a structured `.md` file in a folder you control.
+## the friction
 
-That folder is the point. Your AI coding agent (Claude Code, Cursor, Aider, etc.) can read these `.md` files directly. Your Obsidian vault can point at them. A future agent of your own design can subscribe to them. The app is the UI layer over markdown — not a database that traps your meetings.
+paying for granola or otter when whisper runs free on your laptop. no good way to capture voice memos and turn them into searchable, AI-analyzed context that feeds back into your second brain. the moment you finish a meeting, the cost of having anything resembling structured notes goes up linearly with how much you care.
 
-## the pitch in one paragraph
+## the motivation
 
-If you live in an agentic workflow — running an AI coding agent every day, writing in Obsidian, managing context across tools — and you want a productivity hub that captures voice, surfaces structure, and **outputs to flat files your agents already understand**, that's Timbre. It's a personal command center for your meetings that happens to also be just a folder of `.md` files.
+your everyday tools should spark delight. retro aesthetics, whimsical touches, DJ pad buttons you actually want to press. productivity doesn't have to look like enterprise saas. the goal is a personal command center where you record a voice memo and a `.md` file shows up that your agents can do something with — and the UI in between has chrome bubbles and a pixel dolphin that swims across when something completes.
+
+## the name
+
+timbre = the quality that makes a voice recognizable. also sounds like "timber" which is satisfying to say. has a microphone emoji 🎙️.
 
 ## the four surfaces
 
-- **record** — one button. Press to record, press to stop. Live waveform. Saves as `.m4a` in your library.
-- **decode** — sidebar of your meetings, transcript on the right. Click-to-seek, speaker rename, find/replace, in-place edit, export to Markdown / SRT / JSON / plaintext. The sparkle `prompt` button runs analysis.
-- **browse** — every recording is a card. Filter by speaker, time range, or free-text keyword. Click any card → side panel with the full structured analysis (summary, decisions, action items, open questions, detailed notes, transcript). Click `edit` → every card becomes inline-editable; save round-trips back into structured data and re-writes the `.md`.
-- **debrief** — cross-meeting aggregation. Every open question / decision / action across all your memos, in three columns. Each card tags its source meeting and offers one action: `answer` (for questions and decisions, opens a text input that saves as a `> blockquote` under the bullet) or `complete` (for actions, marks done + a pixel dolphin slides across the screen because the joy matters).
+each card on the home screen is a verb. you record, you decode, you browse, you debrief.
 
-## the AI-native architecture
+- **record** — one button. press to start, press to stop. live waveform. saves as `.m4a` in your library.
+- **decode** — transcript view of one meeting. on-device whisperkit transcription, speaker diarization, click-to-seek, edit mode, export. the sparkle `prompt` button runs analysis.
+- **browse** — every meeting as a card. filter by speaker, time range, free-text keyword. click any card → a side panel with the full structured analysis (summary, decisions, action items, open questions, notes).
+- **debrief** — cross-meeting aggregation. every open question / decision / action across all your meetings, in three columns. each card tags its source meeting and offers one action: `answer` (questions + decisions, opens a text input) or `complete` (actions, with a pixel dolphin slide-in because the joy matters).
 
-Three layers, each independently swappable.
+![browse cards](screenshots/03-browse-cards.png)
 
-**1. Transcription** runs locally on your Mac via [WhisperKit](https://github.com/argmaxinc/WhisperKit) on the Apple Neural Engine. Pick a model size (tiny → large-v3) in Settings. Audio never leaves the device. Speaker diarization is handled on-device too via [SpeakerKit](https://github.com/argmaxinc/WhisperKit) (pyannote, CC-BY-4.0).
+![side panel reading view](screenshots/04-browse-sidepanel.png)
 
-**2. Analysis** is opt-in and routes through whichever LLM you trust:
+click `edit` and every card becomes inline-editable. summary and notes turn into text editors, each bullet becomes a row you can change / delete / add to. click `done` to save — the structured data updates and the `.md` file gets re-written.
 
-- **Bring your own OpenAI key**: paste it once in Settings (stored in macOS Keychain, never elsewhere). Click `prompt` and Timbre calls GPT-4o directly.
-- **Bring your own LLM, any LLM**: click `prompt` without a key and Timbre copies a structured prompt to your clipboard. Paste it into Claude, ChatGPT, your local Ollama, whatever. Paste the response back into the app (or drop a `.md` file). The parser splits it into the same structured fields the API path produces.
-- **No analysis at all**: just keep the on-device transcript. Browse it, search it, export it. Skip the AI layer entirely.
+![side panel edit mode](screenshots/05-browse-sidepanel-edit.png)
 
-**3. Storage** is a flat directory of `.md` files. One file per meeting with YAML frontmatter (memo id, title, date, duration, analysis model, analyzed timestamp) and a strict body format:
+![debrief — three columns of cross-meeting threads](screenshots/06-debrief.png)
 
+![answer modal mid-typing](screenshots/07-debrief-answer-sheet.png)
+
+## the architecture (and why the `.md` file matters)
+
+three layers, each independently swappable.
+
+**transcription** runs locally on your mac via [whisperkit](https://github.com/argmaxinc/WhisperKit) on the apple neural engine. pick a model size (tiny → large-v3) in settings. audio never leaves the device. speaker diarization happens on-device too via [speakerkit](https://github.com/argmaxinc/WhisperKit) (pyannote, CC-BY-4.0).
+
+**analysis** is opt-in and routes through whatever LLM you trust:
+
+- bring your own openai key. paste it once in settings (stored in macos keychain). click `prompt`, timbre calls gpt-4o directly.
+- bring your own LLM, any LLM. click `prompt` without a key and timbre copies a structured prompt to your clipboard. paste it into claude, chatgpt, ollama, whatever. paste the response back (or drop a `.md` file). the parser splits it into the same structured fields the api path produces.
+- no analysis at all. just keep the on-device transcript. skip the AI layer.
+
+**storage** is a flat folder of `.md` files. one per meeting. valid github-flavored markdown. opens in obsidian, vs code, cursor, or anything else that reads markdown:
+
+```markdown
+---
+timbre-memo-id: 07B04C51-934A-4552-BAA3-9386014C38E6
+title: studio chat with noor
+date: 2026-05-12T21:00:00Z
+duration: 2478
+model: demo-seed
+analyzed: 2026-05-20T05:27:39Z
+---
+
+## SUMMARY
+studio session with noor on the sample question. we were going to swap the
+original sample because of clearance concerns, but talked through it and
+agreed the song doesn't work without it.
+
+## DECISIONS
+- [x] cancel the alt-version tracking session — not needed
+  > vinyl first, streaming follows. confirmed with the pressing plant friday.
+- [ ] release vinyl first, streaming follows
+
+## ACTIONS
+- [x] me: call the publisher monday morning
+- [ ] noor: pull the sample's metadata + previous use cases for the call
+
+## QUESTIONS
+- [x] what's the right vinyl-only window — a week, two, a month?
+  > we landed on three weeks. enough to feel exclusive, not so long that
+  > the streaming launch feels like an afterthought.
+
+## NOTES
+### the sample debate
+- noor's worry: clearance might be expensive or blocked entirely
+- my position: it's the whole emotional core of the song
 ```
-## SUMMARY     — plain prose
-## DECISIONS   — - [ ] / - [x] task bullets
-## ACTIONS     — - [ ] / - [x] task bullets
-## QUESTIONS   — - [ ] / - [x] task bullets
-## NOTES       — free markdown, sub-headings allowed
-```
 
-Resolved items get rendered with `  > quoted answer` lines nested under the bullet. The format is **valid GitHub-flavored markdown**, so it works in Obsidian, VS Code, mdcat, the Logseq importer, `grep`, or whatever else you point at the folder.
+resolved threads become `- [x]` with a nested `> blockquote` answer. unresolved stay as `- [ ]`. it's the same format whether the api wrote it or you did, whether timbre wrote it or you edited it by hand in obsidian. the file is the canonical store — swiftdata is the cache.
 
-The render/parse round-trip is symmetric: `AnalysisPromptBuilder.renderAnalysisMarkdown` ↔ `parseManualResponse`. Edit a memo in Timbre and the `.md` file updates. Edit the `.md` in Obsidian (today, manually re-open the app to re-read; live file-watching is a planned follow-up) and Timbre will reconcile. **Your agents can do the same** — anything that can read a markdown file with task lists and blockquotes can read Timbre's output.
+your agents can read these files directly. claude code, cursor, aider, openclaw — anything that can grep a folder of markdown can grep your meeting history. that's the whole point.
 
-## what's not in v0.1.0 (yet)
+## settings + demo data
 
-- Live `.md` file watching (today: app writes, doesn't yet auto-import external edits — round-trip works on app launch)
-- Multi-provider LLM picker in the UI (the `AnalysisProvider` protocol exists in code; only `OpenAIProvider` is surfaced in Settings)
-- iCloud / CloudKit sync for shared workspaces (planned — see the v3 spec)
-- Recording from the iOS app (macOS only for now)
-- A polished Record-screen waveform editor (record + stop + save works; trim/edit lives in decode's edit mode instead)
+person bubble bottom-right of home opens settings. AI provider + openai key live there. there's also a developer section with **seed demo data** (drops in 5 example memos covering every UI state — un-analyzed, fresh, partially answered, fully resolved, summary-only) and **reset all data** (wipes everything for a clean install).
+
+![settings + developer section](screenshots/02-settings-me.png)
+
+## what's not in v0.1.0 yet
+
+- live `.md` file watching (today: timbre writes, doesn't yet auto-import external edits — round-trip works on app launch)
+- multi-provider LLM picker in the UI (the `AnalysisProvider` protocol exists in code; only `OpenAIProvider` is surfaced in settings)
+- iCloud / cloudkit sync for shared workspaces (planned)
+- iOS (macos only for now)
+- record-screen waveform trim editor (record + stop + save works; trim/edit lives in decode's edit mode instead)
 
 ## requirements
 
-- macOS 14.0 (Sonoma) or later
-- Apple Silicon recommended (M1/M2/M3/M4) for fast on-device transcription
-- Xcode 16+ or Swift 5.9+ command-line tools
-- ~150 MB disk for the base WhisperKit model, ~3 GB for large-v3
+- macos 14.0 (sonoma) or later
+- apple silicon recommended (M1/M2/M3/M4) for fast on-device transcription
+- xcode 16+ or swift 5.9+ command-line tools
+- ~150 MB disk for the base whisperkit model, ~3 GB for large-v3
 
 ## build
 
@@ -77,14 +126,14 @@ cd apolline-production/Timbre
 open Timbre.app
 ```
 
-| Command | What it does |
+| command | what it does |
 |---------|-------------|
-| `./build.sh` | Debug build, creates `Timbre.app` in the project dir |
-| `./build.sh release` | Optimized release build |
-| `./build.sh install` | Release build + copy to `/Applications` |
-| `./build.sh clean` | Remove build artifacts |
+| `./build.sh` | debug build, creates `Timbre.app` in the project dir |
+| `./build.sh release` | optimized release build |
+| `./build.sh install` | release build + copy to `/Applications` |
+| `./build.sh clean` | remove build artifacts |
 
-Or open `Package.swift` in Xcode and hit ⌘R.
+or open `Package.swift` in xcode and hit ⌘R.
 
 ## supported audio formats
 
@@ -94,33 +143,27 @@ Or open `Package.swift` in Xcode and hit ⌘R.
 
 ```
 <storage root>/
-├── library/      # Imported audio files (uuid-named .m4a/.wav/...)
-├── transcripts/  # Plain text transcript mirrors
+├── library/      # imported audio files (uuid-named)
+├── transcripts/  # plain-text transcript mirrors
 ├── analyses/     # YYYY-MM-DD_<slug>.md — the canonical analysis files
-├── models/       # WhisperKit model cache
-└── timbre.store  # SwiftData SQLite database
+├── models/       # whisperkit model cache
+└── timbre.store  # swiftdata sqlite database
 ```
 
-Default root is `~/Desktop/Code/apolline-production/timbre/data/`. Change it in Settings → Storage location.
+default root is `~/Desktop/Code/apolline-production/timbre/data/`. change it in settings → storage location.
 
 ## tech stack
 
-- **Swift 5.9+** / **SwiftUI** — macOS-native, no Electron, no web view
-- **SwiftData** — local persistence (the `.md` files are the canonical store; SwiftData is the cache)
-- **[WhisperKit](https://github.com/argmaxinc/WhisperKit)** — CoreML Whisper on the Apple Neural Engine
-- **[SpeakerKit](https://github.com/argmaxinc/WhisperKit)** — on-device pyannote speaker diarization
-- **AVFoundation** — audio playback + waveform extraction
-- **DotGothic16** (Google Fonts, SIL OFL) — the pixelated Y2K display font
-
-Models are downloaded automatically on first use from HuggingFace. No token required.
-
-## try it without setup
-
-Settings (the person bubble bottom-right of Home) → developer → **seed demo data**. Timbre creates 5 example memos covering every UI state — un-analyzed, fresh analysis, partial resolutions, fully completed, and summary-only — so you can poke at Browse and Debrief end-to-end without recording anything or running an LLM. Click **reset all data** when you're done.
+- **swift 5.9+** / **swiftui** — macos-native, no electron, no web view
+- **swiftdata** — local persistence (the `.md` files are canonical; swiftdata is the cache)
+- **[whisperkit](https://github.com/argmaxinc/WhisperKit)** — coreml whisper on the apple neural engine
+- **[speakerkit](https://github.com/argmaxinc/WhisperKit)** — on-device pyannote speaker diarization
+- **avfoundation** — audio playback + waveform extraction
+- **dotgothic16** (google fonts, SIL OFL) — the pixelated y2k display font
 
 ## contributing
 
-Issues and pull requests welcome at [github.com/apollinej/apolline-production](https://github.com/apollinej/apolline-production). For bugs include macOS version, the surface you were on (record / decode / browse / debrief), and steps to reproduce.
+issues + pull requests welcome at [github.com/apollinej/apolline-production](https://github.com/apollinej/apolline-production). bugs: include macos version, the surface (record / decode / browse / debrief), steps to reproduce.
 
 ## license
 
