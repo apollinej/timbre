@@ -9,6 +9,10 @@ struct ScanView: View {
     @State private var importErrorMessage: String?
     let onGoHome: () -> Void
     let onOpenMemo: (Memo) -> Void
+    /// Optional memo to surface in the side panel when Scan first appears,
+    /// used by Debrief's meeting chip to open Browse with the relevant
+    /// memo already selected.
+    var initialSelection: Memo? = nil
 
     private var filteredMemos: [Memo] { vm.filtered(allMemos) }
 
@@ -56,6 +60,20 @@ struct ScanView: View {
             Button("ok", role: .cancel) { importErrorMessage = nil }
         } message: {
             Text(importErrorMessage ?? "")
+        }
+        .onAppear {
+            if let target = initialSelection, vm.selectedMemo?.id != target.id {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    vm.selectedMemo = target
+                }
+            }
+        }
+        .onChange(of: initialSelection?.id) { _, _ in
+            if let target = initialSelection {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    vm.selectedMemo = target
+                }
+            }
         }
     }
 

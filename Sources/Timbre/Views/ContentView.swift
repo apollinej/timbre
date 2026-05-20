@@ -16,6 +16,9 @@ struct ContentView: View {
     @State private var importErrorMessage: String?
     @State private var showSettings = false
     @State private var showMe = false
+    /// Memo to surface in Browse's side panel when navigated there from
+    /// Debrief's meeting chip. Cleared after Scan picks it up.
+    @State private var pendingScanSelection: Memo?
 
     var body: some View {
         Group {
@@ -114,14 +117,17 @@ struct ContentView: View {
                     onOpenMemo: { memo in
                         selectedMemo = memo
                         router.navigate(to: .memo(memo))
-                    }
+                    },
+                    initialSelection: pendingScanSelection
                 )
             case .threads:
                 ThreadsView(
                     onGoHome: { router.goHome() },
                     onOpenMemo: { memo in
-                        selectedMemo = memo
-                        router.navigate(to: .memo(memo))
+                        // From Debrief: open Browse with the source memo
+                        // pre-selected in the side panel (not decode).
+                        pendingScanSelection = memo
+                        router.navigate(to: .scan)
                     }
                 )
             default:
