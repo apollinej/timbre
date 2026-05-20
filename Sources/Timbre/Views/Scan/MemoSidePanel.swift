@@ -16,6 +16,12 @@ struct MemoSidePanel: View {
     @State private var showPasteSheet = false
     @State private var pasteText = ""
     @State private var infoToast: String?
+    @State private var sheetMode: PasteSheetMode = .paste
+
+    private enum PasteSheetMode {
+        case paste  // came in via "prompt" — clipboard helpers visible
+        case edit   // came in via "edit"   — just a markdown editor
+    }
     private let orchestrator = AnalysisOrchestrator()
 
     /// All cards render unconditionally. Notes is second-to-last
@@ -179,12 +185,23 @@ struct MemoSidePanel: View {
                 requestAnalysis()
             }
             TimbreEditPill(label: "edit") {
-                pasteText = AnalysisPromptBuilder.renderAnalysisMarkdown(memo.analysis)
-                showPasteSheet = true
+                openEditSheet()
             }
             Spacer()
         }
         .padding(.horizontal, 4)
+    }
+
+    /// Two-step open so the textarea binding sees the rendered markdown
+    /// BEFORE the sheet body is evaluated. Without the dispatch, SwiftUI
+    /// batches state updates and the TextEditor renders against the
+    /// stale (empty) pasteText.
+    private func openEditSheet() {
+        sheetMode = .edit
+        pasteText = AnalysisPromptBuilder.renderAnalysisMarkdown(memo.analysis)
+        Task { @MainActor in
+            showPasteSheet = true
+        }
     }
 
     // MARK: - Analysis cards (display only; actions live in the banner above)
@@ -304,7 +321,8 @@ struct MemoSidePanel: View {
             Task { await runAnalysis() }
         } else {
             copyPrompt()
-            pasteText = memo.analysis?.detailedNotes ?? ""
+            sheetMode = .paste
+            pasteText = ""
             showPasteSheet = true
         }
     }
@@ -314,7 +332,7 @@ struct MemoSidePanel: View {
     private var pasteAnalysisSheet: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("paste your analysis")
+                Text(sheetMode == .edit ? "edit analysis" : "paste your analysis")
                     .font(TimbreFont.fontBold(size: 16))
                     .foregroundStyle(Color(hex: "044060"))
                 Spacer()
@@ -329,24 +347,32 @@ struct MemoSidePanel: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
 
-            HStack(spacing: 6) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 12))
-                    .foregroundStyle(Color(hex: "00A058"))
-                Text("prompt copied to clipboard — paste it into chatgpt or claude, then paste the response below (or upload a .md file).")
+            if sheetMode == .paste {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color(hex: "00A058"))
+                    Text("prompt copied to clipboard — paste it into chatgpt or claude, then paste the response below (or upload a .md file).")
+                        .font(TimbreFont.font(size: 12))
+                        .foregroundStyle(Color(hex: "044060"))
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+
+                HStack(spacing: 8) {
+                    TimbrePill("re-copy prompt", style: .secondary) { copyPrompt() }
+                    TimbrePill("upload .md file", style: .secondary) { uploadMarkdown() }
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+            } else {
+                Text("edit the markdown below — save round-trips it back into summary, decisions, action items, questions, and notes.")
                     .font(TimbreFont.font(size: 12))
                     .foregroundStyle(Color(hex: "044060"))
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
-
-            HStack(spacing: 8) {
-                TimbrePill("re-copy prompt", style: .secondary) { copyPrompt() }
-                TimbrePill("upload .md file", style: .secondary) { uploadMarkdown() }
-                Spacer()
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
 
             TextEditor(text: $pasteText)
                 .font(.system(size: 13, design: .monospaced))
