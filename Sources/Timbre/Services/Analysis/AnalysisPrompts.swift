@@ -145,15 +145,13 @@ enum AnalysisPromptBuilder {
             buffer.removeAll(keepingCapacity: true)
         }
 
-        for rawLine in text.components(separatedBy: .newlines) {
-            let line = rawLine
-            // Match "## HEADER" or "### HEADER" — strip leading #s and spaces.
-            let trimmedHashes = line.drop(while: { $0 == "#" })
-            let isHeader = trimmedHashes.count != line.count
-                && trimmedHashes.first == " "
-            if isHeader {
+        // Only EXACTLY "## " (two hashes followed by space) starts a new
+        // section. `### Subheading` is treated as content within the current
+        // section so the LLM can structure its NOTES however it likes.
+        for line in text.components(separatedBy: .newlines) {
+            if line.hasPrefix("## ") && !line.hasPrefix("### ") {
                 flush()
-                currentKey = String(trimmedHashes)
+                currentKey = String(line.dropFirst(3))
                     .trimmingCharacters(in: .whitespaces)
                     .lowercased()
             } else {

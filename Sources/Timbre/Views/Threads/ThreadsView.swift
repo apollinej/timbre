@@ -81,13 +81,28 @@ struct ThreadsView: View {
 
     // MARK: - Filters (matching scan page)
 
+    private var displayedPersons: [Person] {
+        var inUse = Set<String>()
+        for memo in memos {
+            for seg in memo.transcript?.segments ?? [] {
+                if let s = seg.speaker {
+                    inUse.insert(s.effectiveName.lowercased())
+                }
+            }
+        }
+        return persons.filter { person in
+            let names = [person.canonicalName.lowercased()] + person.aliases.map { $0.lowercased() }
+            return names.contains { inUse.contains($0) }
+        }
+    }
+
     private var filterBar: some View {
         HStack(spacing: 8) {
-            // Person chips
-            if !persons.isEmpty {
+            // Person chips — only those actually referenced by current memos
+            if !displayedPersons.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
-                        ForEach(persons) { person in
+                        ForEach(displayedPersons) { person in
                             TimbrePersonChip(
                                 person: person,
                                 isSelected: vm.selectedPersonIDs.contains(person.id)
