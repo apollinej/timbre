@@ -11,6 +11,9 @@ final class AnalysisItem {
     var sourceMemoID: UUID?
     /// "action", "thread", or "decision" — used by Threads view for cross-memo queries
     var itemType: String?
+    /// User-written answer for a question/decision, or note when completing
+    /// an action. Persisted to the .md file as `> quote` under the bullet.
+    var resolution: String?
 
     init(
         text: String,
@@ -25,5 +28,6 @@ final class AnalysisItem {
         self.dateCreated = .now
         self.sourceMemoID = sourceMemoID
         self.itemType = itemType
+        self.resolution = nil
     }
 }

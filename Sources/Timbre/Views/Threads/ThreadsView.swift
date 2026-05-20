@@ -7,6 +7,9 @@ struct ThreadsView: View {
     @Query(sort: \Memo.dateImported, order: .reverse) private var memos: [Memo]
     @Query private var persons: [Person]
     @State private var vm = ThreadsViewModel()
+    @State private var answeringItem: AnalysisItem?
+    @State private var answerText: String = ""
+    @State private var celebrationID: UUID?
     let onGoHome: () -> Void
     let onOpenMemo: (Memo) -> Void
 
@@ -33,7 +36,47 @@ struct ThreadsView: View {
                     columns
                 }
             }
+
+            if let id = celebrationID {
+                TranscriptCelebrationOverlay(runID: id) {
+                    celebrationID = nil
+                }
+                .id(id)
+                .transition(.opacity)
+            }
         }
+        .sheet(item: $answeringItem) { item in
+            AnswerSheet(
+                item: item,
+                draft: $answerText,
+                onSave: { saveAnswer(for: item) },
+                onCancel: { answeringItem = nil }
+            )
+        }
+    }
+
+    private func saveAnswer(for item: AnalysisItem) {
+        let trimmed = answerText.trimmingCharacters(in: .whitespacesAndNewlines)
+        item.resolution = trimmed.isEmpty ? nil : trimmed
+        item.isResolved = true
+        try? modelContext.save()
+        writeMD(for: item)
+        answeringItem = nil
+    }
+
+    private func completeAction(_ item: AnalysisItem) {
+        item.isResolved = true
+        try? modelContext.save()
+        writeMD(for: item)
+        withAnimation(.easeOut(duration: 0.2)) {
+            celebrationID = UUID()
+        }
+    }
+
+    private func writeMD(for item: AnalysisItem) {
+        guard let id = item.sourceMemoID,
+              let memo = memos.first(where: { $0.id == id }) else { return }
+        AnalysisDiskExport.writeIfPossible(memo)
     }
 
     private var overallEmptyState: some View {
@@ -200,20 +243,17 @@ struct ThreadsView: View {
                             ThreadItemRow(
                                 item: item,
                                 memoTitle: vm.memoTitle(for: item, memos: memos),
-                                onToggleResolved: {
-                                    item.isResolved.toggle()
-                                    try? modelContext.save()
-                                    if let id = item.sourceMemoID,
-                                       let memo = memos.first(where: { $0.id == id }) {
-                                        AnalysisDiskExport.writeIfPossible(memo)
-                                    }
-                                },
                                 onOpenMemo: {
                                     if let id = item.sourceMemoID,
                                        let memo = memos.first(where: { $0.id == id }) {
                                         onOpenMemo(memo)
                                     }
-                                }
+                                },
+                                onAnswer: {
+                                    answerText = item.resolution ?? ""
+                                    answeringItem = item
+                                },
+                                onComplete: { completeAction(item) }
                             )
                             Rectangle()
                                 .fill(Color(hex: "40C8FF").opacity(0.15))

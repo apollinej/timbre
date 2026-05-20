@@ -146,7 +146,17 @@ enum AnalysisDiskExport {
     }
 
     private static func renderBullet(_ item: AnalysisItem) -> String {
-        item.isResolved ? "- [x] \(item.text)" : "- [ ] \(item.text)"
+        var line = item.isResolved ? "- [x] \(item.text)" : "- [ ] \(item.text)"
+        if let res = item.resolution?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !res.isEmpty {
+            // GitHub-flavored markdown nested blockquote — readable in Obsidian
+            // and survives round-trips through any GFM editor.
+            let quoted = res.components(separatedBy: .newlines)
+                .map { "  > \($0)" }
+                .joined(separator: "\n")
+            line.append("\n\(quoted)")
+        }
+        return line
     }
 
     // MARK: - Paths
