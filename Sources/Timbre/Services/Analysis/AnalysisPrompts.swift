@@ -88,9 +88,10 @@ enum AnalysisPromptBuilder {
         """
     }
 
-    /// Self-contained prompt the user can paste into any LLM
-    /// (ChatGPT, Claude, etc.) without an API key. Output is structured
-    /// markdown the user can paste back via "paste your own".
+    /// Self-contained prompt the user pastes into any LLM. The output
+    /// format below is strict on purpose — the parser splits the
+    /// response by exact `## ` headers to populate MemoAnalysis fields.
+    /// Keep these section names in sync with `parseManualResponse`.
     static func manualPrompt(for memo: Memo) -> String? {
         guard let transcript = memo.transcript else { return nil }
         let transcriptText = transcript.sortedSegments.map { seg in
@@ -99,29 +100,22 @@ enum AnalysisPromptBuilder {
         }.joined(separator: "\n\n")
 
         return """
-        You are a senior consultant producing structured meeting documentation. Analyze this transcript and produce executive-quality notes.
+        You are analyzing a meeting transcript. Output EXACTLY the sections below with the headers exactly as shown — no other sections, no preamble, no closing remarks. Use markdown.
 
-        ## Output Format (paste this back into timbre exactly as-is)
+        ## SUMMARY
+        A 2-3 sentence executive summary. Lead with the most important outcome or decision.
 
-        ### Executive Summary
-        2-3 sentences. Lead with the most important outcome.
+        ## NOTES
+        Detailed notes organized by topic (not chronologically). Use sub-headings (### Topic) and bullets. Attribute claims to speakers when possible. Include specifics, numbers, and implied context.
 
-        ### Detailed Notes
-        Organized by topic, not chronologically. For each topic:
-        - **Topic heading** in bold
-        - What was discussed, with attribution to speakers
-        - Any specifics, numbers, data points
-        - Implied context
+        ## DECISIONS
+        One decision per bullet starting with "- ". Include who decided and why. If no decisions were made, write a single line: "- none".
 
-        ### Key Decisions
-        - One decision per bullet
-        - Include who decided and why
+        ## ACTIONS
+        One action per bullet starting with "- ". Format each as "owner: what to do (by when if mentioned)". Example: "- apolline: draft the spec by friday". If no actions were committed, write: "- none".
 
-        ### Action Items
-        - Owner: action — deadline (if mentioned)
-
-        ### Open Questions
-        - Items raised but not resolved
+        ## QUESTIONS
+        One open question or unresolved thread per bullet starting with "- ". If none, write: "- none".
 
         ---
 
@@ -133,5 +127,98 @@ enum AnalysisPromptBuilder {
 
         \(transcriptText)
         """
+    }
+
+    /// Parse an LLM response (or hand-written markdown) into the same
+    /// shape the API path produces. Forgiving: matches headers
+    /// case-insensitively and accepts common synonyms.
+    static func parseManualResponse(_ text: String) -> FullAnalysisResult {
+        var sections: [String: String] = [:]
+        var currentKey: String?
+        var buffer: [String] = []
+
+        func flush() {
+            if let key = currentKey {
+                sections[key] = buffer.joined(separator: "\n")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            buffer.removeAll(keepingCapacity: true)
+        }
+
+        for rawLine in text.components(separatedBy: .newlines) {
+            let line = rawLine
+            // Match "## HEADER" or "### HEADER" — strip leading #s and spaces.
+            let trimmedHashes = line.drop(while: { $0 == "#" })
+            let isHeader = trimmedHashes.count != line.count
+                && trimmedHashes.first == " "
+            if isHeader {
+                flush()
+                currentKey = String(trimmedHashes)
+                    .trimmingCharacters(in: .whitespaces)
+                    .lowercased()
+            } else {
+                buffer.append(line)
+            }
+        }
+        flush()
+
+        func section(_ candidates: [String]) -> String {
+            for c in candidates {
+                if let value = sections[c], !value.isEmpty { return value }
+            }
+            return ""
+        }
+
+        let summary = section(["summary", "executive summary", "tl;dr"])
+        let notes = section(["notes", "detailed notes"])
+        let decisionsText = section(["decisions", "key decisions"])
+        let actionsText = section(["actions", "action items", "actions & owners"])
+        let questionsText = section(["questions", "open questions", "open threads", "questions & follow-ups"])
+
+        // If the user pasted raw markdown without any recognizable
+        // section headers, fall back to the whole blob as notes so
+        // nothing is lost.
+        let anyParsed = !summary.isEmpty || !notes.isEmpty
+            || !decisionsText.isEmpty || !actionsText.isEmpty || !questionsText.isEmpty
+        let finalNotes = anyParsed
+            ? notes
+            : text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return FullAnalysisResult(
+            summary: summary,
+            detailedNotes: finalNotes,
+            actionItems: parseBullets(actionsText),
+            decisions: parseBullets(decisionsText),
+            threads: parseBullets(questionsText)
+        )
+    }
+
+    private static func parseBullets(_ text: String) -> [String] {
+        text.components(separatedBy: .newlines).compactMap { raw in
+            let line = raw.trimmingCharacters(in: .whitespaces)
+            guard !line.isEmpty else { return nil }
+            for prefix in ["- ", "* ", "• ", "– ", "— "] {
+                if line.hasPrefix(prefix) {
+                    let body = String(line.dropFirst(prefix.count))
+                        .trimmingCharacters(in: .whitespaces)
+                    if body.lowercased() == "none" { return nil }
+                    return body.isEmpty ? nil : body
+                }
+            }
+            // Numbered list: "1. " / "12) "
+            if let firstNonDigit = line.firstIndex(where: { !$0.isNumber }) {
+                let head = line[line.startIndex..<firstNonDigit]
+                if !head.isEmpty {
+                    let rest = line[firstNonDigit...]
+                    if rest.hasPrefix(". ") || rest.hasPrefix(") ") {
+                        let body = String(rest.dropFirst(2))
+                            .trimmingCharacters(in: .whitespaces)
+                        if body.lowercased() == "none" { return nil }
+                        return body.isEmpty ? nil : body
+                    }
+                }
+            }
+            return nil
+        }
     }
 }

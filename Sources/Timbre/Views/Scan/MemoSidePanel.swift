@@ -1,6 +1,7 @@
 import AppKit
 import SwiftData
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct MemoSidePanel: View {
     @Environment(\.modelContext) private var modelContext
@@ -10,7 +11,6 @@ struct MemoSidePanel: View {
     let onNext: (() -> Void)?
     let onOpenAnalyze: () -> Void
 
-    @State private var scrollTarget: String?
     @State private var isAnalyzing = false
     @State private var analysisError: String?
     @State private var showPasteSheet = false
@@ -21,36 +21,30 @@ struct MemoSidePanel: View {
     /// All cards render unconditionally now (empty cards show a prompt button),
     /// so every section is always a valid jump target.
     private var availableSections: [String] {
-        ["metadata", "summary", "notes", "key decisions", "action items", "open questions", "transcript"]
+        ["header", "summary", "notes", "key decisions", "action items", "open questions", "transcript"]
     }
 
     var body: some View {
         VStack(spacing: 0) {
             panelHeader
             ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 14) {
-                        titleCard.id("metadata")
-                        summaryCard.id("summary")
-                        notesCard.id("notes")
-                        decisionsCard.id("key decisions")
-                        actionItemsCard.id("action items")
-                        questionsCard.id("open questions")
-                        transcriptSection.id("transcript")
-                    }
-                    .padding(16)
-                }
-                .onChange(of: scrollTarget) { _, target in
-                    if let target {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            proxy.scrollTo(target, anchor: .top)
+                VStack(spacing: 0) {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 14) {
+                            titleCard.id("header")
+                            summaryCard.id("summary")
+                            notesCard.id("notes")
+                            decisionsCard.id("key decisions")
+                            actionItemsCard.id("action items")
+                            questionsCard.id("open questions")
+                            transcriptSection.id("transcript")
                         }
-                        scrollTarget = nil
+                        .padding(16)
                     }
+
+                    sectionJumper(proxy: proxy)
                 }
             }
-
-            sectionJumper
         }
         .frame(minWidth: 400, idealWidth: 460)
         .background(
@@ -86,51 +80,51 @@ struct MemoSidePanel: View {
 
     private var panelHeader: some View {
         ZStack {
-            BrushedMetal(baseColor: Color(hex: "C0E8F8"), intensity: 0.25)
+            BrushedMetal(baseColor: Color(hex: "98D4F8"), intensity: 0.34)
+            VStack {
+                Rectangle().fill(Color.white.opacity(0.4)).frame(height: 1)
+                Spacer()
+                Rectangle().fill(Color(hex: "0080C0").opacity(0.22)).frame(height: 1)
+            }
 
             HStack(spacing: 10) {
                 if onPrevious != nil {
-                    Button { onPrevious?() } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(Color(hex: "0088FF"))
-                    }
-                    .buttonStyle(.plain)
+                    BubbleButton(
+                        icon: "chevron.left",
+                        size: 26,
+                        color: Color(hex: "0088FF"),
+                        action: { onPrevious?() }
+                    )
                 }
 
-                Text(memo.title)
-                    .font(TimbreFont.fontBold(size: 15))
-                    .foregroundStyle(Color(hex: "044060"))
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity)
+                Spacer()
 
                 if onNext != nil {
-                    Button { onNext?() } label: {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(Color(hex: "0088FF"))
-                    }
-                    .buttonStyle(.plain)
+                    BubbleButton(
+                        icon: "chevron.right",
+                        size: 26,
+                        color: Color(hex: "0088FF"),
+                        action: { onNext?() }
+                    )
                 }
 
-                Button { onOpenAnalyze() } label: {
-                    Image(systemName: "arrow.up.forward.app.fill")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Color(hex: "0088C8"))
-                }
-                .buttonStyle(.plain)
-                .help("open in decode")
+                BubbleButton(
+                    icon: "arrow.up.forward",
+                    size: 26,
+                    color: Color(hex: "00D8A0"),
+                    action: onOpenAnalyze
+                )
 
-                Button { onClose() } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
-                        .foregroundStyle(Color(hex: "0088C8"))
-                }
-                .buttonStyle(.plain)
+                BubbleButton(
+                    icon: "xmark",
+                    size: 26,
+                    color: Color(hex: "7090B0"),
+                    action: onClose
+                )
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 10)
         }
-        .frame(height: 42)
+        .frame(height: 48)
     }
 
     // MARK: - Title card (first card: title + metadata)
@@ -243,30 +237,9 @@ struct MemoSidePanel: View {
     }
 
     private var promptButton: some View {
-        Button { requestAnalysis() } label: {
-            HStack(spacing: 5) {
-                if isAnalyzing {
-                    ProgressView().controlSize(.small)
-                } else {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 12))
-                }
-                Text(isAnalyzing ? "analyzing\u{2026}" : "prompt")
-                    .font(TimbreFont.fontBold(size: 12))
-            }
-            .foregroundStyle(isAnalyzing ? Color(hex: "0088FF") : .white)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(
-                Capsule().fill(
-                    isAnalyzing
-                        ? Color(hex: "E0F0FF")
-                        : Color(hex: "0088FF")
-                )
-            )
+        TimbrePromptPill(label: "prompt", isBusy: isAnalyzing) {
+            requestAnalysis()
         }
-        .buttonStyle(.plain)
-        .disabled(isAnalyzing)
     }
 
     private func itemList(_ items: [AnalysisItem]) -> some View {
@@ -342,7 +315,7 @@ struct MemoSidePanel: View {
     // MARK: - Paste-your-own analysis
 
     private var pasteAnalysisSheet: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("paste your analysis")
                     .font(TimbreFont.fontBold(size: 16))
@@ -359,11 +332,25 @@ struct MemoSidePanel: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
 
-            Text("copy the prompt, paste it into chatgpt or claude, then paste the response below — it will appear as the notes for this memo.")
-                .font(TimbreFont.font(size: 12))
-                .foregroundStyle(Color(hex: "2090C8"))
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color(hex: "00A058"))
+                Text("prompt copied to clipboard — paste it into chatgpt or claude, then paste the response below (or upload a .md file).")
+                    .font(TimbreFont.font(size: 12))
+                    .foregroundStyle(Color(hex: "044060"))
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
+
+            HStack(spacing: 8) {
+                TimbrePill("re-copy prompt", style: .secondary) { copyPrompt() }
+                TimbrePill("upload .md file", style: .secondary) { uploadMarkdown() }
+                TimbrePill("use sample", style: .secondary) { pasteText = sampleResponse }
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
 
             TextEditor(text: $pasteText)
                 .font(.system(size: 13, design: .monospaced))
@@ -378,7 +365,7 @@ struct MemoSidePanel: View {
             }
             .padding(16)
         }
-        .frame(width: 560, height: 480)
+        .frame(width: 600, height: 540)
         .background(Theme.iridescentSubtle)
     }
 
@@ -389,27 +376,70 @@ struct MemoSidePanel: View {
         }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(prompt, forType: .string)
-        showToast("prompt copied — paste into chatgpt or claude")
+        showToast("prompt copied to clipboard")
+    }
+
+    private func uploadMarkdown() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        var types: [UTType] = [.plainText, .text]
+        if let md = UTType(filenameExtension: "md") { types.append(md) }
+        if let markdown = UTType(filenameExtension: "markdown") { types.append(markdown) }
+        panel.allowedContentTypes = types
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        if let text = try? String(contentsOf: url, encoding: .utf8) {
+            pasteText = text
+        } else {
+            showToast("could not read file")
+        }
     }
 
     private func savePastedAnalysis() {
         let trimmed = pasteText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { showPasteSheet = false; return }
 
-        let analysis = memo.analysis ?? MemoAnalysis(analysisModelUsed: "manual-paste")
-        analysis.detailedNotes = trimmed
-        analysis.dateAnalyzed = .now
-        analysis.analysisModelUsed = "manual-paste"
-        analysis.isStale = false
-
-        if memo.analysis == nil {
-            modelContext.insert(analysis)
-            memo.analysis = analysis
-        }
-        memo.status = .analyzed
+        let parsed = AnalysisPromptBuilder.parseManualResponse(trimmed)
+        writeAnalysis(parsed)
+        memo.analysis?.analysisModelUsed = "manual-paste"
         try? modelContext.save()
         showPasteSheet = false
         showToast("analysis saved")
+    }
+
+    /// Realistic sample response so the user can see Debrief populated
+    /// without running OpenAI. Triggered by "use sample" in the paste sheet.
+    private var sampleResponse: String {
+        """
+        ## SUMMARY
+        The team aligned on positioning around active duration and the cultural shift away from algorithmic feeds. Major decision: lead with the gatekeeper framing rather than the tooling story, with a credibility-first interview as the opener.
+
+        ## NOTES
+        ### Positioning
+        - Active duration vs. supply/demand axis — apolline framed the discovery problem getting worse as AI music supply goes infinite while attention stays fixed
+        - The new filter function is downstream of the value layer; we move up the stack from creation tools to curation
+        - idan pushed for three buckets: legal, technical, cultural — cultural feels most defensible
+
+        ### Discovery & gatekeeping
+        - Tiktok analog from idan's experience at google shopping in 2020 — supply shock + curation gap
+        - "Gatekeeper" as a frame: people already know who the labels are; making that explicit is more honest than pretending we have a neutral algorithm
+
+        ## DECISIONS
+        - Lead the launch story with gatekeeper/cultural framing, not the music-creation-tools narrative
+        - Open with an interview-format piece (apolline) instead of a polished video
+        - Defer the deep-dive video until after the interview lands
+
+        ## ACTIONS
+        - apolline: draft the interview outline and three target outlets by friday
+        - idan: pull together the supply-shock + curation deck slides from the partnership convo
+        - apolline: write up the gatekeeper framing in 2-3 paragraphs so it's quotable
+        - both: review polish/perfectionism risk before next sync
+
+        ## QUESTIONS
+        - Do we name specific gatekeepers (labels) or keep it abstract?
+        - What's the actual ask of the interviewer — a profile or a debate?
+        - Is the partnership angle a distraction from the cultural framing, or the proof point for it?
+        """
     }
 
     private func showToast(_ text: String) {
@@ -487,42 +517,48 @@ struct MemoSidePanel: View {
     // MARK: - Section jumper (bottom bar)
 
     @State private var showJumpMenu = false
+    @State private var currentSectionIndex = 0
 
-    private var sectionJumper: some View {
-        HStack(spacing: 8) {
+    private func sectionJumper(proxy: ScrollViewProxy) -> some View {
+        HStack(spacing: 10) {
             Spacer()
 
-            Button { jumpDirection(-1) } label: {
-                Image(systemName: "chevron.up")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Color(hex: "0088FF"))
-                    .frame(width: 28, height: 28)
-            }
-            .buttonStyle(.plain)
+            BubbleButton(
+                icon: "chevron.up",
+                size: 26,
+                color: Color(hex: "0088FF"),
+                action: { jumpDirection(-1, proxy: proxy) }
+            )
 
-            // Jump to section dropdown
             Button { showJumpMenu.toggle() } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "list.bullet")
-                        .font(.system(size: 11))
-                    Text("jump to")
+                        .font(.system(size: 11, weight: .bold))
+                    Text(availableSections[currentSectionIndex])
                         .font(TimbreFont.fontBold(size: 11))
                 }
-                .foregroundStyle(Color(hex: "0088FF"))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
                 .background(
-                    Capsule().fill(Color(hex: "F0FCFF"))
-                        .overlay(Capsule().strokeBorder(Color(hex: "0080C0").opacity(0.3)))
+                    Capsule().fill(
+                        LinearGradient(
+                            colors: [Color(hex: "00B8FF"), Color(hex: "0080E0")],
+                            startPoint: .top, endPoint: .bottom
+                        )
+                    )
                 )
+                .overlay(Capsule().strokeBorder(Color.white.opacity(0.45), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .popover(isPresented: $showJumpMenu) {
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(availableSections, id: \.self) { section in
+                    ForEach(Array(availableSections.enumerated()), id: \.offset) { idx, section in
                         Button {
-                            scrollTarget = section
-                            currentSectionIndex = availableSections.firstIndex(of: section) ?? 0
+                            currentSectionIndex = idx
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                proxy.scrollTo(section, anchor: .top)
+                            }
                             showJumpMenu = false
                         } label: {
                             Text(section)
@@ -539,28 +575,40 @@ struct MemoSidePanel: View {
                 .padding(.vertical, 4)
             }
 
-            Button { jumpDirection(1) } label: {
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Color(hex: "0088FF"))
-                    .frame(width: 28, height: 28)
-            }
-            .buttonStyle(.plain)
+            BubbleButton(
+                icon: "chevron.down",
+                size: 26,
+                color: Color(hex: "0088FF"),
+                action: { jumpDirection(1, proxy: proxy) }
+            )
 
             Spacer()
         }
-        .padding(.vertical, 6)
-        .background(BrushedMetal(baseColor: Color(hex: "C0E8F8"), intensity: 0.22))
+        .padding(.vertical, 8)
+        .background(BrushedMetal(baseColor: Color(hex: "98D4F8"), intensity: 0.34))
+        .overlay(
+            Rectangle()
+                .fill(Color(hex: "0080C0").opacity(0.22))
+                .frame(height: 1),
+            alignment: .top
+        )
     }
 
-    @State private var currentSectionIndex = 0
-
-    private func jumpDirection(_ direction: Int) {
+    private func jumpDirection(_ direction: Int, proxy: ScrollViewProxy) {
         let sections = availableSections
         guard !sections.isEmpty else { return }
         let newIndex = max(0, min(sections.count - 1, currentSectionIndex + direction))
+        guard newIndex != currentSectionIndex || direction == 0 else {
+            // Already clamped — still scroll for visible feedback if at an edge.
+            withAnimation(.easeInOut(duration: 0.3)) {
+                proxy.scrollTo(sections[newIndex], anchor: .top)
+            }
+            return
+        }
         currentSectionIndex = newIndex
-        scrollTarget = sections[newIndex]
+        withAnimation(.easeInOut(duration: 0.3)) {
+            proxy.scrollTo(sections[newIndex], anchor: .top)
+        }
     }
 
     // MARK: - Helpers

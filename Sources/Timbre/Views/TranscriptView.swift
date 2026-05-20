@@ -516,11 +516,30 @@ struct TranscriptView: View {
         let trimmed = pasteText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { showPasteSheet = false; return }
 
+        let parsed = AnalysisPromptBuilder.parseManualResponse(trimmed)
         let analysis = memo.analysis ?? MemoAnalysis(analysisModelUsed: "manual-paste")
-        analysis.detailedNotes = trimmed
+        analysis.summary = parsed.summary
+        analysis.detailedNotes = parsed.detailedNotes
         analysis.dateAnalyzed = .now
         analysis.analysisModelUsed = "manual-paste"
         analysis.isStale = false
+
+        analysis.actionItems.forEach { modelContext.delete($0) }
+        analysis.openThreads.forEach { modelContext.delete($0) }
+        analysis.keyDecisions.forEach { modelContext.delete($0) }
+
+        analysis.actionItems = parsed.actionItems.map {
+            let i = AnalysisItem(text: $0, sourceMemoID: memo.id, itemType: "action")
+            modelContext.insert(i); return i
+        }
+        analysis.openThreads = parsed.threads.map {
+            let i = AnalysisItem(text: $0, sourceMemoID: memo.id, itemType: "thread")
+            modelContext.insert(i); return i
+        }
+        analysis.keyDecisions = parsed.decisions.map {
+            let i = AnalysisItem(text: $0, sourceMemoID: memo.id, itemType: "decision")
+            modelContext.insert(i); return i
+        }
 
         if memo.analysis == nil {
             modelContext.insert(analysis)

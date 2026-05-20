@@ -55,6 +55,47 @@ struct TimbrePill: View {
     }
 }
 
+/// Sparkle-prefixed primary pill — matches TimbrePill primary chrome
+/// (gradient + glossy border) so action buttons stay visually
+/// consistent with the rest of the app.
+struct TimbrePromptPill: View {
+    let label: String
+    var isBusy: Bool = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                if isBusy {
+                    ProgressView().controlSize(.small).tint(.white)
+                } else {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 11, weight: .bold))
+                }
+                Text(isBusy ? "analyzing\u{2026}" : label)
+                    .font(TimbreFont.fontBold(size: 13))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 7)
+            .background(
+                Capsule().fill(
+                    LinearGradient(
+                        colors: [Color(hex: "00B8FF"), Color(hex: "0080E0")],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
+            )
+            .overlay(
+                Capsule().strokeBorder(Color.white.opacity(0.45), lineWidth: 1)
+            )
+            .shadow(color: Color(hex: "00C8FF").opacity(0.25), radius: 3, y: 1)
+        }
+        .buttonStyle(.plain)
+        .disabled(isBusy)
+    }
+}
+
 /// Toggle pill for filters — matches TimbrePill style but with selected/unselected state
 struct TimbreTogglePill: View {
     let label: String
